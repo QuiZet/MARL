@@ -1,0 +1,6 @@
+pettingzoo
+pygame
+pymunk
+opencv-python
+tensorboardX
+supersuit

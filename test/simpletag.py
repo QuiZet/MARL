@@ -21,6 +21,7 @@ from pettingzoo.mpe import simple_tag_v3
 USE_CUDA = False  # torch.cuda.is_available()
 
 def run(config):
+#logging
     model_dir = Path('./models') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
@@ -36,11 +37,13 @@ def run(config):
     log_dir = run_dir / 'logs'
     os.makedirs(log_dir)
     logger = SummaryWriter(str(log_dir))
-
+#seeding
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
     if not USE_CUDA:
         torch.set_num_threads(config.n_training_threads)
+
+#training
     env = simple_tag_v3.parallel_env(render_mode='human')
     env.reset()
 

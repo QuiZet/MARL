@@ -80,7 +80,6 @@ def run(config):
         maddpg.reset_noise()
 
 
-#git test
         for et_i in range(config.episode_length):
             print(f'config.episode_length:{et_i} {config.episode_length}')
             # rearrange observations to be per agent, and convert to torch Variable

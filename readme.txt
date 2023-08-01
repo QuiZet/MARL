@@ -16,3 +16,7 @@ algorithms
 Collection of MARL algorithms.
   maddpg_naive : Lee-san's imlementation.
   maddpg : Some issues to fix. 
+
+Code to run script
+  from MARL directory run the following code
+  python test/simpletag_dev.py cooperativepong maddpg

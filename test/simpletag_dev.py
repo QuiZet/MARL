@@ -25,7 +25,8 @@ def run(config):
     if not model_dir.exists():
         curr_run = 'run1'
     else:
-        exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in model_dir.iterdir() if str(folder.name).startswith('run')]
+        exst_run_nums = [int(str(folder.name).split('run')[1]) 
+                         for folder in model_dir.iterdir() if str(folder.name).startswith('run')]
         if len(exst_run_nums) == 0:
             curr_run = 'run1'
         else:
@@ -42,14 +43,18 @@ def run(config):
         torch.set_num_threads(config.n_training_threads)
 
     # Training
-    env = simple_tag_v3.parallel_env(render_mode='human')
+    env = simple_tag_v3.parallel_env(render_mode='rgb', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=25, continuous_actions=True)
     obs_dict, _ = env.reset()  # Get the initial observations and ignore the second return value
 
+    # a: [16, 16, 16, 14], observation spaces of agents
     a = [env.observation_space(agent).shape[0] for agent in env.possible_agents]
     print(f'a:{a}')
+    # b: [5, 5, 5, 5], action spaces of agents
     b = [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) else env.action_space(agent).n for agent in env.possible_agents]
     print(f'b:{b}')
-
+    
+    #possible algs: MADDPG,DDPG
+    #possible adversary algs: MADDPG,DDPG  
     maddpg = MADDPG.init_from_env(env, agent_alg=config.agent_alg,
                                   adversary_alg=config.adversary_alg,
                                   tau=config.tau,
@@ -62,7 +67,18 @@ def run(config):
 
     t = 0
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
-        # ... (unchanged code for episode and exploration noise setup)
+        print("Episodes %i-%i of %i" % (ep_i + 1,
+                                        ep_i + 1 + config.n_rollout_threads,
+                                        config.n_episodes))
+        obs = env.reset()
+        print(f'obs:{obs}')
+        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
+        maddpg.prep_rollouts(device='cpu')
+
+        #noise w.r.t. episode percent remaining
+        explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
+        maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
+        maddpg.reset_noise()
 
         # Episode length
         for et_i in range(config.episode_length):
@@ -74,20 +90,24 @@ def run(config):
                 agent_obs = [obs_dict[agent]]
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
 
-            torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
+            #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 
             # Get actions from the MADDPG policy and explore if needed
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            agent_actions = {agent: ac.data.numpy() for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-
+            for agent, ac in zip(env.possible_agents, torch_agent_actions):
+                print(f'agent:{agent} ac:{type(ac)}')
+            agent_actions = {agent: ac for agent, ac in zip(env.possible_agents, torch_agent_actions)}
+            print(f'agent_actions:{agent_actions}')
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
+            print(f'next_obs:{next_obs}')
 
             replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
             obs_dict = next_obs  # Update obs_dict for the next iteration
             t += config.n_rollout_threads
             if (len(replay_buffer) >= config.batch_size and
                 (t % config.steps_per_update) < config.n_rollout_threads):
+                #train critic, actor, target networks
                 if USE_CUDA:
                     maddpg.prep_training(device='gpu')
                 else:

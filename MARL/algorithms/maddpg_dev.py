@@ -73,11 +73,12 @@ class MADDPG(object):
         agent_actions = []
         for i, agent in enumerate(self.agents):
             obs = observations[i]  # Observations for the current agent
+            print(f"Observations for agent {i}: {obs}")
             torch_obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.pol_dev)
             action = agent.policy(torch_obs)
 
-            if explore and self.is_training:
-                action += agent.explore_noise.noise()
+            #if explore and self.is_training:
+            #    action += agent.explore_noise.noise()
 
             agent_actions.append(action.squeeze(0).detach().cpu().numpy())
 
@@ -237,7 +238,7 @@ class MADDPG(object):
                 get_shape = lambda x: x.n
             num_out_pol = get_shape(acsp)
 
-            # Compute num_in_pol for each agent
+            # Compute input dimension of policy for each agent, which is observatino shape
             num_in_pol = obsp.shape[0]
 
             if algtype == "MADDPG":

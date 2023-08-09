@@ -1,5 +1,6 @@
 import argparse
 import torch
+import torch.nn.functional as F
 import time
 import os
 import numpy as np
@@ -13,7 +14,6 @@ sys.path.append('../MARL/')
 
 from MARL.utils.buffer import ReplayBuffer
 from MARL.algorithms.maddpg_dev import MADDPG
-
 import pygame
 from pettingzoo.mpe import simple_tag_v3
 
@@ -87,8 +87,15 @@ def run(config):
             # Convert the observations to torch Tensor
             torch_obs = []
             for agent in env.possible_agents:
+                #print(f'agent:{agent}')
                 agent_obs = [obs_dict[agent]]
+                if agent == 'agent_0':
+                    agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
+                    agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
+                    agent_obs = [agent_obs]
+                print(f'agent_obs:{agent_obs}')
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
+                print(f'Tensor agent_obs:{agent_obs}')
 
             #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 

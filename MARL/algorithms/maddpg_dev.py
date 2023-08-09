@@ -5,6 +5,7 @@ from MARL.utils.networks import MLPNetwork
 from MARL.utils.misc import soft_update, average_gradients, onehot_from_logits, gumbel_softmax
 from MARL.utils.agents import DDPGAgent
 import numpy as np
+from gymnasium.spaces import Box, Discrete
 
 MSELoss = torch.nn.MSELoss()
 
@@ -227,6 +228,9 @@ class MADDPG(object):
 
         for agent in env.possible_agents:
             obsp = env.observation_space(agent)
+            if agent == 'agent_0':
+                obsp = Box(-1, 1, shape=(16,), dtype=np.float32)
+            print(f'obsp shape and dtype for agent {agent}:',obsp, obsp.dtype)
             acsp = env.action_space(agent)
             algtype = alg_types[env.possible_agents.index(agent)]
 

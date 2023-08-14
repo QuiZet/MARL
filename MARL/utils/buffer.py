@@ -19,10 +19,13 @@ class ReplayBuffer(object):
         self.max_steps = max_steps
         self.num_agents = num_agents
         self.obs_buffs = []
+        #self.obs_dims = obs_dims
         self.ac_buffs = []
         self.rew_buffs = []
         self.next_obs_buffs = []
         self.done_buffs = []
+        #needs optimization
+        self.agent_names = ['adversary_0', 'adversary_1', 'adversary_2', 'agent_0']
         for odim, adim in zip(obs_dims, ac_dims):
             self.obs_buffs.append(np.zeros((max_steps, odim)))
             self.ac_buffs.append(np.zeros((max_steps, adim)))
@@ -37,7 +40,11 @@ class ReplayBuffer(object):
     def __len__(self):
         return self.filled_i
 
+    #obs,actions,rewards,next_obs is dict
     def push(self, observations, actions, rewards, next_observations, dones):
+        print("RB_push actions:",actions)
+        print("RB_push rewards:",rewards)
+        print("agent_0 reward:",rewards['agent_0'])
         nentries = len(observations)#.shape[0]  # handle multiple parallel environments
         if self.curr_i + nentries > self.max_steps:
             rollover = self.max_steps - self.curr_i # num of indices to roll over
@@ -58,16 +65,20 @@ class ReplayBuffer(object):
         idx = 0
         for key in observations:
             agents_idx[idx] = key
+            idx += 1
+            print('agent_idx:', agents_idx)
 
-        for agent_i in range(self.num_agents):
+        for agent_i in (self.agent_names):
             self.obs_buffs[agent_i][self.curr_i:self.curr_i + nentries] = np.vstack(
                 #observations[:, agent_i])
                 observations[agents_idx[agent_i]])
             # actions are already batched by agent, so they are indexed differently
-            self.ac_buffs[agent_i][self.curr_i:self.curr_i + nentries] = actions[agent_i]
-            self.rew_buffs[agent_i][self.curr_i:self.curr_i + nentries] = rewards[:, agent_i]
+            self.ac_buffs[agent_i][self.curr_i:self.curr_i + nentries] = actions[agents_idx[agent_i]]
+            print("RB_actions:", actions[agent_i])
+            self.rew_buffs[agent_i][self.curr_i:self.curr_i + nentries] = rewards[agents_idx[agent_i]]
+            print("RB_next_observations_agent_i:",next_observations[agents_idx[agent_i]])
             self.next_obs_buffs[agent_i][self.curr_i:self.curr_i + nentries] = np.vstack(
-                next_observations[:, agent_i])
+                next_observations[agents_idx[agent_i]])
             self.done_buffs[agent_i][self.curr_i:self.curr_i + nentries] = dones[:, agent_i]
         self.curr_i += nentries
         if self.filled_i < self.max_steps:

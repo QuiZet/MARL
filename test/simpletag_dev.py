@@ -62,8 +62,12 @@ def run(config):
                                   hidden_dim=config.hidden_dim)
 
     replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
-                                 [env.observation_space(agent).shape[0] for agent in env.possible_agents],
-                                 [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) else env.action_space(agent).n for agent in env.possible_agents])
+                                 #[env.observation_space(agent).shape[0] for agent in env.possible_agents],
+                                 [16,16,16,16],
+                                 [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) 
+                                  else env.action_space(agent).n for agent in env.possible_agents])
+
+    #print("replay buffer observation dimensions",replay_buffer.obs_dims)
 
     t = 0
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
@@ -93,9 +97,11 @@ def run(config):
                     agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
                     agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
                     agent_obs = [agent_obs]
+                    obs_dict[agent] = agent_obs
                 print(f'agent_obs:{agent_obs}')
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
                 print(f'Tensor agent_obs:{agent_obs}')
+                print(f'obs_dict[agent]:{obs_dict[agent]}')
 
             #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 
@@ -107,7 +113,14 @@ def run(config):
             print(f'agent_actions:{agent_actions}')
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
+            print('agent_actions:', agent_actions)
+            print('torch_agent_actions:', torch_agent_actions)
             print(f'next_obs:{next_obs}')
+            print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
+            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
+            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
+            print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
+            print(f'obs_dict:{obs_dict}')
 
             replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
             obs_dict = next_obs  # Update obs_dict for the next iteration

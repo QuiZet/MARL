@@ -62,7 +62,6 @@ def run(config):
                                   hidden_dim=config.hidden_dim)
 
     replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
-                                 #[env.observation_space(agent).shape[0] for agent in env.possible_agents],
                                  [16,16,16,16],
                                  [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) 
                                   else env.action_space(agent).n for agent in env.possible_agents])

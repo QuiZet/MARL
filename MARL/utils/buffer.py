@@ -34,9 +34,9 @@ class ReplayBuffer(object):
             self.next_obs_buffs.append(np.zeros((max_steps, odim)))
             self.done_buffs.append(np.zeros(max_steps))
         
-        print(f'obs_buffs[0][2]:{self.obs_buffs[0][1:3]}')
+        print(f'obs_buffs[3][1].shape:{self.obs_buffs[3][1].shape}')
         #obs_buffs[0][2]:[[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
-        #[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+        #obs_buffs[0,1,2,3].shape:(1000000, 16)
 
         self.filled_i = 0  # index of first empty location in buffer (last index when full)
         self.curr_i = 0  # current index to write to (ovewrite oldest data)
@@ -75,6 +75,7 @@ class ReplayBuffer(object):
             print('agent_idx:', agents_idx)
 
         for agent_i, agent_idx in (agents_idx.items()):
+            print(f'observations[agent_idx]:{observations[agent_idx]}')
             self.obs_buffs[agent_i][self.curr_i] = observations[agent_idx]
                 #observations[:, agent_i]
             #actions are already batched by agent, so they are indexed differently

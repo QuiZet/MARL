@@ -8,6 +8,7 @@ from gymnasium.spaces import Box, Discrete
 from pathlib import Path
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
+
 import sys
 sys.path.append('./')
 sys.path.append('../MARL/')
@@ -16,6 +17,7 @@ from MARL.utils.buffer import ReplayBuffer
 from MARL.algorithms.maddpg_dev import MADDPG
 import pygame
 from pettingzoo.mpe import simple_tag_v3
+
 
 USE_CUDA = False  # torch.cuda.is_available()
 
@@ -43,7 +45,8 @@ def run(config):
         torch.set_num_threads(config.n_training_threads)
 
     # Training
-    env = simple_tag_v3.parallel_env(render_mode='rgb', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=25, continuous_actions=True)
+    # render_mode human (slow) rgb (faster)
+    env = simple_tag_v3.parallel_env(render_mode='human', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=config.episode_length, continuous_actions=True)
     obs_dict, _ = env.reset()  # Get the initial observations and ignore the second return value
 
     # a: [16, 16, 16, 14], observation spaces of agents
@@ -62,7 +65,8 @@ def run(config):
                                   hidden_dim=config.hidden_dim)
 
     replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
-                                 [16,16,16,16],
+                                 [env.observation_space(agent).shape[0] for agent in env.possible_agents], # comment this line for fix size
+                                 #[16,16,16,16],                                                           # uncomment this line for fix size
                                  [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) 
                                   else env.action_space(agent).n for agent in env.possible_agents])
 
@@ -73,8 +77,8 @@ def run(config):
         print("Episodes %i-%i of %i" % (ep_i + 1,
                                         ep_i + 1 + config.n_rollout_threads,
                                         config.n_episodes))
-        obs = env.reset()
-        print(f'obs:{obs}')
+        obs_dict, _ = env.reset()
+        #print(f'obs:{obs}')
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
         maddpg.prep_rollouts(device='cpu')
 
@@ -85,47 +89,38 @@ def run(config):
 
         # Episode length
         for et_i in range(config.episode_length):
-            print(f'config.episode_length:{et_i} {config.episode_length}')
-            print(f'current episode:{et_i}')  
-            
+            #print(f'config.episode_length:{et_i} {config.episode_length}')
+
             # Convert the observations to torch Tensor
             torch_obs = []
             for agent in env.possible_agents:
                 #print(f'agent:{agent}')
-                agent_obs = obs_dict[agent]
-                if agent_obs.shape != (16,):
-                #if agent == 'agent_0'and et_i == 0:
-                    agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
-                    agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
-                    agent_obs = np.squeeze(agent_obs)
-                    #agent_obs = [agent_obs]
-                    obs_dict[agent] = agent_obs
-                    print(f'obs_dict {agent} : {obs_dict[agent]}')
-                    print(f'agent_obs {agent} shape : {agent_obs.shape}')  
-                print(f'{agent} obs:{agent_obs}')
+                agent_obs = [obs_dict[agent]]
+                #if agent == 'agent_0':
+                #    #agent_obs = np.insert(agent_obs, 14, 0, axis=-1) # uncomment this line for fix size
+                #    #agent_obs = np.insert(agent_obs, 0, 0, axis=-1) # uncomment this line for fix size
+                #    obs_dict[agent] = agent_obs
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
-                print(f'Tensor torch_obs:{torch_obs}')
-                print(f'obs_dict {agent}:{obs_dict[agent]}')
 
             #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 
             # Get actions from the MADDPG policy and explore if needed
-            print(f'torch_obs into step:{torch_obs}')
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            for agent, ac in zip(env.possible_agents, torch_agent_actions):
-                print(f'agent:{agent} ac:{type(ac)}')
-            agent_actions = {agent: ac for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-            print(f'agent_actions:{agent_actions}')
+            #for agent, ac in zip(env.possible_agents, torch_agent_actions):
+            #    print(f'agent:{agent} ac:{type(ac)}')
+            # clip the action between a minimum and maximum value to prevent noisy warning messages
+            agent_actions = {agent: np.clip(ac, 0, 1) for agent, ac in zip(env.possible_agents, torch_agent_actions)}
+            #print(f'agent_actions:{agent_actions}')
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
-            print('agent_actions:', agent_actions)
-            print('torch_agent_actions:', torch_agent_actions)
-            print(f'next_obs:{next_obs}')
-            print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
-            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
-            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
-            print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
-            print(f'obs_dict:{obs_dict}')
+            #print('agent_actions:', agent_actions)
+            #print('torch_agent_actions:', torch_agent_actions)
+            #print(f'next_obs:{next_obs}')
+            #print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
+            #next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
+            #next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
+            #print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
+            #print(f'obs_dict:{obs_dict}')
 
             replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
             obs_dict = next_obs  # Update obs_dict for the next iteration
@@ -143,6 +138,22 @@ def run(config):
                         maddpg.update(sample, a_i, logger=logger)
                     maddpg.update_all_targets()
                 maddpg.prep_rollouts(device='cpu')
+
+            # render
+            env.render()
+
+            # Check if it should complete the episode because done or truncated is true in any agent
+            #print(f'dones:{dones} truncations:{truncations}')
+            # TODO: Current code caused crash due to nan value
+            if True:
+                completed = False
+                for agent in env.possible_agents:
+                    if dones[agent] or truncations[agent]:
+                        completed = True
+                if completed: 
+                    print(f'dones:{dones} truncations:{truncations}')
+                    obs_dict, _ = env.reset()
+                    break
 
         ep_rews = replay_buffer.get_average_rewards(config.episode_length * config.n_rollout_threads)
         for a_i, a_ep_rew in enumerate(ep_rews):
@@ -169,7 +180,9 @@ def print_policy_network_dimensions(maddpg):
         print(f"Input Dimension: {agent.policy.fc1.in_features}")
         print(f"Output Dimension: {agent.policy.fc3.out_features}")
 
-
+# terminal1 : python test/simpletag_dev.py simpletag maddpg
+# terminal2 : tensorboard --logdir=./models/simpletag/maddpg/run1           <= change the path for other data
+# open tensorboard (i.e. http://localhost:6006/)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("env_id", help="Name of environment")
@@ -179,7 +192,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=25000, type=int)
-    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument("--episode_length", default=1000, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--batch_size", default=1024, type=int, help="Batch size for model training")
     parser.add_argument("--n_exploration_eps", default=25000, type=int)
@@ -187,8 +200,8 @@ if __name__ == '__main__':
     parser.add_argument("--final_noise_scale", default=0.0, type=float)
     parser.add_argument("--save_interval", default=1000, type=int)
     parser.add_argument("--hidden_dim", default=64, type=int)
-    parser.add_argument("--lr", default=0.01, type=float)
-    parser.add_argument("--tau", default=0.01, type=float)
+    parser.add_argument("--lr", default=0.001, type=float)
+    parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--agent_alg", default="MADDPG", type=str, choices=['MADDPG', 'DDPG'])
     parser.add_argument("--adversary_alg", default="MADDPG", type=str, choices=['MADDPG', 'DDPG'])
     parser.add_argument("--discrete_action", action='store_true')

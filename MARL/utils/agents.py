@@ -18,9 +18,13 @@ class DDPGAgent(object):
             num_out_pol (int): number of dimensions for policy output
             num_in_critic (int): number of dimensions for critic input
         """
+        print('self.policy')
         self.policy = MLPNetwork(num_in_pol, num_out_pol, hidden_dim=hidden_dim)
+        print('self.target_policy')
         self.target_policy = MLPNetwork(num_in_pol, num_out_pol, hidden_dim=hidden_dim)
+        print('self.critic')
         self.critic = MLPNetwork(num_in_critic, 1, hidden_dim=hidden_dim)
+        print('self.target_critic')
         self.target_critic = MLPNetwork(num_in_critic, 1, hidden_dim=hidden_dim)
         hard_update(self.target_policy, self.policy)
         hard_update(self.target_critic, self.critic)
@@ -86,4 +90,4 @@ class DDPGAgent(object):
 
     def check_model_shapes(self):
         for target_param, param in zip(self.target_policy.parameters(), self.policy.parameters()):
-            print(f"Target shape: {target_param.shape}, Main shape: {param.shape}")
+            print(f"target_param(self.target_policy) shape: {target_param.shape}, param(self.policy) shape: {param.shape}")

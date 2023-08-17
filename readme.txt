@@ -20,3 +20,10 @@ Collection of MARL algorithms.
 Code to run script
   from MARL directory run the following code
   python test/simpletag_dev.py cooperativepong maddpg
+
+
+```
+terminal1 : python test/simpletag_dev.py simpletag maddpg
+terminal2 : tensorboard --logdir=./models/simpletag/maddpg/run1           <= change the path for other data
+open tensorboard (i.e. http://localhost:6006/)
+```

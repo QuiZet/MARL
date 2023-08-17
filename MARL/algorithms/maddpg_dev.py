@@ -31,8 +31,12 @@ class MADDPG(object):
             hidden_dim (int): Number of hidden dimensions for networks
             discrete_action (bool): Whether or not to use discrete action space
         """
+        print('MADDPG::__init__')
+
         self.nagents = len(alg_types)
         self.alg_types = alg_types
+
+        print(f'agent_init_params:{agent_init_params}')
         self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
                                  hidden_dim=hidden_dim,
                                  **params)
@@ -75,7 +79,8 @@ class MADDPG(object):
         for i, agent in enumerate(self.agents):
             obs = observations[i]  # Observations for the current agent
             #print(f"Observations for agent {i}: {obs}")
-            torch_obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.pol_dev)
+            #torch_obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.pol_dev)
+            torch_obs = obs.clone().detach().unsqueeze(0).to(self.pol_dev)
             action = agent.policy(torch_obs)
 
             #if explore and self.is_training:
@@ -102,9 +107,12 @@ class MADDPG(object):
         curr_agent = self.agents[agent_i]
 
         # Convert observations, actions, and next_observations to tensors
-        torch_obs = [ob.clone().detach() for ob in obs] #torch.tensor(ob, dtype=torch.float32) for ob in obs]
-        torch_next_obs = [nob.clone().detach() for nob in next_obs] #torch.tensor(nob, dtype=torch.float32) for nob in next_obs]
-        torch_actions = [ac.clone().detach() for ac in acs]  #torch.tensor(ac, dtype=torch.float32) for ac in acs]
+        #torch_obs = [torch.tensor(ob, dtype=torch.float32) for ob in obs]
+        #torch_next_obs = [torch.tensor(nob, dtype=torch.float32) for nob in next_obs]
+        #torch_actions = [torch.tensor(ac, dtype=torch.float32) for ac in acs]
+        torch_obs = [ob.clone().detach() for ob in obs]
+        torch_next_obs = [nob.clone().detach() for nob in next_obs]
+        torch_actions = [ac.clone().detach() for ac in acs]
 
         # Compute target values for the critic
         with torch.no_grad():
@@ -128,7 +136,7 @@ class MADDPG(object):
         vf_loss.backward()
         if parallel:
             average_gradients(curr_agent.critic)
-        torch.nn.utils.clip_grad_norm(curr_agent.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
         curr_agent.critic_optimizer.step()
 
         # Update policy
@@ -143,7 +151,7 @@ class MADDPG(object):
         pol_loss.backward()
         if parallel:
             average_gradients(curr_agent.policy)
-        torch.nn.utils.clip_grad_norm(curr_agent.policy.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
         curr_agent.policy_optimizer.step()
 
         if logger is not None:
@@ -217,6 +225,7 @@ class MADDPG(object):
         """
         Instantiate instance of this class from multi-agent environment
         """
+        print('MADDPG::init_from_env')
         agent_init_params = []
         #env.agent_types]
         alg_types = [adversary_alg if atype == 'adversary' else agent_alg for atype in env.possible_agents]
@@ -225,6 +234,23 @@ class MADDPG(object):
         print(f'alg_types:{alg_types}')
         #for acsp, obsp, algtype in zip(env.action_space(env.possible_agents[0]), env.observation_space(env.possible_agents[0]),
         #                               alg_types):
+
+        # calculate the total num_in_critic
+        # it is necessary in case the observation/action spaces are different between agents
+        num_in_critic_total = 0
+        for agent in env.possible_agents:
+            obsp = env.observation_space(agent)
+            acsp = env.action_space(agent)
+            if isinstance(acsp, Box):
+                discrete_action = False
+                get_shape = lambda x: x.shape[0]
+            else:  # Discrete
+                discrete_action = True
+                get_shape = lambda x: x.n
+            num_out_pol = get_shape(acsp)
+            num_in_pol = obsp.shape[0]
+            # sum the policies in/out
+            num_in_critic_total += num_in_pol + num_out_pol
 
         for agent in env.possible_agents:
             obsp = env.observation_space(agent)
@@ -242,12 +268,15 @@ class MADDPG(object):
                 get_shape = lambda x: x.n
             num_out_pol = get_shape(acsp)
 
-            # Compute input dimension of policy for each agent, which is observation shape
-            num_in_pol = 16 #obsp.shape[0]
+            # Compute input dimension of policy for each agent, which is observatino shape
+            num_in_pol = obsp.shape[0]
 
             if algtype == "MADDPG":
-                num_agents = 4
-                num_in_critic = num_in_pol + num_out_pol * num_agents
+                #num_agents = len(env.possible_agents)
+                # (size_observation + size_action) * num_agents
+                # (16 + 5) + (16 + 5) + (16 + 5) + (14 + 5) = 82
+                #num_in_critic = (num_in_pol + num_out_pol) * num_agents
+                num_in_critic = num_in_critic_total
             else:
                 num_in_critic = num_in_pol + num_out_pol
 
@@ -262,8 +291,11 @@ class MADDPG(object):
                     'alg_types': alg_types,
                     'agent_init_params': agent_init_params,
                     'discrete_action': discrete_action}
+        print(f'>>> call init:{init_dict} <<<')
         instance = cls(**init_dict)
+        print('>>> assign instance <<<')
         instance.init_dict = init_dict
+        print('>>> return <<<')
         return instance
         
     @classmethod

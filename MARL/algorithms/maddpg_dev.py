@@ -74,7 +74,7 @@ class MADDPG(object):
         agent_actions = []
         for i, agent in enumerate(self.agents):
             obs = observations[i]  # Observations for the current agent
-            print(f"Observations for agent {i}: {obs}")
+            #print(f"Observations for agent {i}: {obs}")
             torch_obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.pol_dev)
             action = agent.policy(torch_obs)
 
@@ -102,9 +102,9 @@ class MADDPG(object):
         curr_agent = self.agents[agent_i]
 
         # Convert observations, actions, and next_observations to tensors
-        torch_obs = [torch.tensor(ob, dtype=torch.float32) for ob in obs]
-        torch_next_obs = [torch.tensor(nob, dtype=torch.float32) for nob in next_obs]
-        torch_actions = [torch.tensor(ac, dtype=torch.float32) for ac in acs]
+        torch_obs = [ob.clone().detach() for ob in obs] #torch.tensor(ob, dtype=torch.float32) for ob in obs]
+        torch_next_obs = [nob.clone().detach() for nob in next_obs] #torch.tensor(nob, dtype=torch.float32) for nob in next_obs]
+        torch_actions = [ac.clone().detach() for ac in acs]  #torch.tensor(ac, dtype=torch.float32) for ac in acs]
 
         # Compute target values for the critic
         with torch.no_grad():
@@ -228,8 +228,8 @@ class MADDPG(object):
 
         for agent in env.possible_agents:
             obsp = env.observation_space(agent)
-            if agent == 'agent_0':
-                obsp = Box(-1, 1, shape=(16,), dtype=np.float32)
+            #if agent == 'agent_0':
+            #    obsp = Box(-1, 1, shape=(16,), dtype=np.float32)
             print(f'obsp shape and dtype for agent {agent}:',obsp, obsp.dtype)
             acsp = env.action_space(agent)
             algtype = alg_types[env.possible_agents.index(agent)]
@@ -242,8 +242,8 @@ class MADDPG(object):
                 get_shape = lambda x: x.n
             num_out_pol = get_shape(acsp)
 
-            # Compute input dimension of policy for each agent, which is observatino shape
-            num_in_pol = obsp.shape[0]
+            # Compute input dimension of policy for each agent, which is observation shape
+            num_in_pol = 16 #obsp.shape[0]
 
             if algtype == "MADDPG":
                 num_agents = 4

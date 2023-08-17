@@ -86,30 +86,22 @@ def run(config):
         # Episode length
         for et_i in range(config.episode_length):
             print(f'config.episode_length:{et_i} {config.episode_length}')
-
+            print(f'current episode:{et_i}')  
+            
             # Convert the observations to torch Tensor
             torch_obs = []
-            agent_0_padded = False
             for agent in env.possible_agents:
                 #print(f'agent:{agent}')
                 agent_obs = obs_dict[agent]
-                if agent == 'agent_0' and not agent_0_padded:
-                    print(f'before zero padding:{agent_obs}')
-                    agent_obs = [0] + list(agent_obs) + [0]
-                    agent_0_padded = True
-                    obs_dict[agent] = agent_obs
-                    print(f'after zero padding:{agent_obs}')
-                else:
-                    agent_obs = list(agent_obs)
-                    obs_dict[agent] = agent_obs
-                    #print(f'before zero padding:{agent_obs}')
-                    #agent_obs = [0] + list(agent_obs) + [0]
-                    #agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
-                    #agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
+                if agent_obs.shape != (16,):
+                #if agent == 'agent_0'and et_i == 0:
+                    agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
+                    agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
+                    agent_obs = np.squeeze(agent_obs)
                     #agent_obs = [agent_obs]
-                    #obs_dict[agent] = agent_obs
-                    #print(f'obs_dict {agent} : {obs_dict[agent]}')
-                    
+                    obs_dict[agent] = agent_obs
+                    print(f'obs_dict {agent} : {obs_dict[agent]}')
+                    print(f'agent_obs {agent} shape : {agent_obs.shape}')  
                 print(f'{agent} obs:{agent_obs}')
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
                 print(f'Tensor torch_obs:{torch_obs}')
@@ -118,6 +110,7 @@ def run(config):
             #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 
             # Get actions from the MADDPG policy and explore if needed
+            print(f'torch_obs into step:{torch_obs}')
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
             for agent, ac in zip(env.possible_agents, torch_agent_actions):
                 print(f'agent:{agent} ac:{type(ac)}')

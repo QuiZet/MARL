@@ -22,7 +22,7 @@ USE_CUDA = False  # torch.cuda.is_available()
 
 def run(config):
 #logging
-    model_dir = Path('./models') / config.env_id / config.model_name
+    model_dir = Path('./results') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
     else:

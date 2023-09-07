@@ -15,15 +15,15 @@ sys.path.append('../MARL/')
 
 from MARL.utils.buffer import ReplayBuffer
 from MARL.algorithms.maddpg_dev import MADDPG
+from MARL.models.model_wrapper import ModelWrapper
 import pygame
 from pettingzoo.mpe import simple_tag_v3
-
 
 USE_CUDA = False  # torch.cuda.is_available()
 
 def run(config):
     # Logging
-    model_dir = Path('./models') / config.env_id / config.model_name
+    model_dir = Path('./results') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
     else:
@@ -49,22 +49,9 @@ def run(config):
     env = simple_tag_v3.parallel_env(render_mode='human', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=config.episode_length, continuous_actions=True)
     obs_dict, _ = env.reset()  # Get the initial observations and ignore the second return value
 
-    # a: [16, 16, 16, 14], observation spaces of agents
-    a = [env.observation_space(agent).shape[0] for agent in env.possible_agents]
-    print(f'a:{a}')
-    # b: [5, 5, 5, 5], action spaces of agents
-    b = [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) else env.action_space(agent).n for agent in env.possible_agents]
-    print(f'b:{b}')
-    
-    #possible algs: MADDPG,DDPG
-    #possible adversary algs: MADDPG,DDPG  
-    maddpg = MADDPG.init_from_env(env, agent_alg=config.agent_alg,
-                                  adversary_alg=config.adversary_alg,
-                                  tau=config.tau,
-                                  lr=config.lr,
-                                  hidden_dim=config.hidden_dim)
+    modelwrapper = ModelWrapper(env=env, model_name='MADDPG', config=config)
 
-    replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
+    replay_buffer = ReplayBuffer(config.buffer_length, modelwrapper.nagents(),
                                  [env.observation_space(agent).shape[0] for agent in env.possible_agents], # comment this line for fix size
                                  #[16,16,16,16],                                                           # uncomment this line for fix size
                                  [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) 
@@ -78,49 +65,29 @@ def run(config):
                                         ep_i + 1 + config.n_rollout_threads,
                                         config.n_episodes))
         obs_dict, _ = env.reset()
-        #print(f'obs:{obs}')
-        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
-        maddpg.prep_rollouts(device='cpu')
 
+        modelwrapper.prep_rollouts(device='cpu')
         #noise w.r.t. episode percent remaining
         explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
-        maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
-        maddpg.reset_noise()
+        modelwrapper.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
+        modelwrapper.reset_noise()
 
         # Episode length
         for et_i in range(config.episode_length):
-            #print(f'config.episode_length:{et_i} {config.episode_length}')
 
             # Convert the observations to torch Tensor
             torch_obs = []
             for agent in env.possible_agents:
                 #print(f'agent:{agent}')
                 agent_obs = [obs_dict[agent]]
-                #if agent == 'agent_0':
-                #    #agent_obs = np.insert(agent_obs, 14, 0, axis=-1) # uncomment this line for fix size
-                #    #agent_obs = np.insert(agent_obs, 0, 0, axis=-1) # uncomment this line for fix size
-                #    obs_dict[agent] = agent_obs
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
 
-            #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
-
             # Get actions from the MADDPG policy and explore if needed
-            torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            #for agent, ac in zip(env.possible_agents, torch_agent_actions):
-            #    print(f'agent:{agent} ac:{type(ac)}')
+            torch_agent_actions = modelwrapper.step(torch_obs, explore=True)
             # clip the action between a minimum and maximum value to prevent noisy warning messages
             agent_actions = {agent: np.clip(ac, 0, 1) for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-            #print(f'agent_actions:{agent_actions}')
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
-            #print('agent_actions:', agent_actions)
-            #print('torch_agent_actions:', torch_agent_actions)
-            #print(f'next_obs:{next_obs}')
-            #print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
-            #next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
-            #next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
-            #print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
-            #print(f'obs_dict:{obs_dict}')
 
             replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
             obs_dict = next_obs  # Update obs_dict for the next iteration
@@ -129,15 +96,15 @@ def run(config):
                 (t % config.steps_per_update) < config.n_rollout_threads):
                 #train critic, actor, target networks
                 if USE_CUDA:
-                    maddpg.prep_training(device='gpu')
+                    modelwrapper.prep_training(device='gpu')
                 else:
-                    maddpg.prep_training(device='cpu')
+                    modelwrapper.prep_training(device='cpu')
                 for u_i in range(config.n_rollout_threads):
-                    for a_i in range(maddpg.nagents):
+                    for a_i in range(modelwrapper.nagents()):
                         sample = replay_buffer.sample(config.batch_size, to_gpu=USE_CUDA)
-                        maddpg.update(sample, a_i, logger=logger)
-                    maddpg.update_all_targets()
-                maddpg.prep_rollouts(device='cpu')
+                        modelwrapper.update(sample, a_i, logger=logger)
+                    modelwrapper.update_all_targets()
+                modelwrapper.prep_rollouts(device='cpu')
 
             # render
             env.render()
@@ -161,14 +128,14 @@ def run(config):
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(run_dir / 'incremental', exist_ok=True)
-            maddpg.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
-            maddpg.save(run_dir / 'model.pt')
+            modelwrapper.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
+            modelwrapper.save(run_dir / 'model.pt')
 
-    maddpg.save(run_dir / 'model.pt')
+    modelwrapper.save(run_dir / 'model.pt')
     env.close()
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
-    return env, maddpg
+    return env, modelwrapper
 
 def print_observation_space_dimensions(env):
     for agent in env.possible_agents:
@@ -181,7 +148,7 @@ def print_policy_network_dimensions(maddpg):
         print(f"Output Dimension: {agent.policy.fc3.out_features}")
 
 # terminal1 : python test/simpletag_dev.py simpletag maddpg
-# terminal2 : tensorboard --logdir=./models/simpletag/maddpg/run1           <= change the path for other data
+# terminal2 : tensorboard --logdir=./results/simpletag/maddpg/run1           <= change the path for other data
 # open tensorboard (i.e. http://localhost:6006/)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

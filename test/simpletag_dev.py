@@ -11,6 +11,7 @@ from tensorboardX import SummaryWriter
 import sys
 sys.path.append('./')
 sys.path.append('../MARL/')
+import wandb
 
 from MARL.utils.buffer import ReplayBuffer
 from MARL.algorithms.maddpg_dev import MADDPG
@@ -18,6 +19,8 @@ import pygame
 from pettingzoo.mpe import simple_tag_v3
 
 USE_CUDA = False  # torch.cuda.is_available()
+
+wandb.init(project="MARL")
 
 def run(config):
     # Logging
@@ -74,7 +77,7 @@ def run(config):
                                         ep_i + 1 + config.n_rollout_threads,
                                         config.n_episodes))
         obs = env.reset()
-        print(f'obs:{obs}')
+        #print(f'obs:{obs}')
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
         maddpg.prep_rollouts(device='cpu')
 
@@ -86,53 +89,46 @@ def run(config):
         # Episode length
         for et_i in range(config.episode_length):
             print(f'config.episode_length:{et_i} {config.episode_length}')
-
+            print(f'current episode:{et_i}')  
+            
             # Convert the observations to torch Tensor
             torch_obs = []
-            agent_0_padded = False
             for agent in env.possible_agents:
                 #print(f'agent:{agent}')
                 agent_obs = obs_dict[agent]
-                if agent == 'agent_0' and not agent_0_padded:
-                    print(f'before zero padding:{agent_obs}')
-                    agent_obs = [0] + list(agent_obs) + [0]
-                    agent_0_padded = True
-                    obs_dict[agent] = agent_obs
-                    print(f'after zero padding:{agent_obs}')
-                else:
-                    agent_obs = list(agent_obs)
-                    obs_dict[agent] = agent_obs
-                    #print(f'before zero padding:{agent_obs}')
-                    #agent_obs = [0] + list(agent_obs) + [0]
-                    #agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
-                    #agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
+                if agent_obs.shape != (16,):
+                #if agent == 'agent_0'and et_i == 0:
+                    agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
+                    agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
+                    agent_obs = np.squeeze(agent_obs)
                     #agent_obs = [agent_obs]
-                    #obs_dict[agent] = agent_obs
+                    obs_dict[agent] = agent_obs
                     #print(f'obs_dict {agent} : {obs_dict[agent]}')
-                    
-                print(f'{agent} obs:{agent_obs}')
+                    print(f'agent_obs {agent} shape : {agent_obs.shape}')  
+                #print(f'{agent} obs:{agent_obs}')
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
-                print(f'Tensor torch_obs:{torch_obs}')
-                print(f'obs_dict {agent}:{obs_dict[agent]}')
+                #print(f'Tensor torch_obs:{torch_obs}')
+                #print(f'obs_dict {agent}:{obs_dict[agent]}')
 
             #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
 
             # Get actions from the MADDPG policy and explore if needed
+            #print(f'torch_obs into step:{torch_obs}')
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            for agent, ac in zip(env.possible_agents, torch_agent_actions):
-                print(f'agent:{agent} ac:{type(ac)}')
+            #for agent, ac in zip(env.possible_agents, torch_agent_actions):
+            #    print(f'agent:{agent} ac:{type(ac)}')
             agent_actions = {agent: ac for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-            print(f'agent_actions:{agent_actions}')
+            #print(f'agent_actions:{agent_actions}')
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
-            print('agent_actions:', agent_actions)
-            print('torch_agent_actions:', torch_agent_actions)
-            print(f'next_obs:{next_obs}')
-            print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
+            #print('agent_actions:', agent_actions)
+            #print('torch_agent_actions:', torch_agent_actions)
+            #print(f'next_obs:{next_obs}')
+            #print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
             next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
             next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
-            print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
-            print(f'obs_dict:{obs_dict}')
+            #print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
+            #print(f'obs_dict:{obs_dict}')
 
             replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
             obs_dict = next_obs  # Update obs_dict for the next iteration
@@ -147,18 +143,22 @@ def run(config):
                 for u_i in range(config.n_rollout_threads):
                     for a_i in range(maddpg.nagents):
                         sample = replay_buffer.sample(config.batch_size, to_gpu=USE_CUDA)
+                        #exit(0)
                         maddpg.update(sample, a_i, logger=logger)
                     maddpg.update_all_targets()
                 maddpg.prep_rollouts(device='cpu')
-
+        
         ep_rews = replay_buffer.get_average_rewards(config.episode_length * config.n_rollout_threads)
+        sum_rews = sum(ep_rews)
+        wandb.log({"sum_rews": sum_rews})
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
-
+            
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(run_dir / 'incremental', exist_ok=True)
             maddpg.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
             maddpg.save(run_dir / 'model.pt')
+        
 
     maddpg.save(run_dir / 'model.pt')
     env.close()
@@ -169,11 +169,11 @@ def run(config):
 def print_observation_space_dimensions(env):
     for agent in env.possible_agents:
         obsp = env.observation_space(agent)
-        print(f"Agent {agent}: {obsp.shape}")
+        #print(f"Agent {agent}: {obsp.shape}")
 def print_policy_network_dimensions(maddpg):
     for i, agent in enumerate(maddpg.agents):
-        print(f"Agent {i + 1} - Policy Network:")
-        print(f"Input Dimension: {agent.policy.fc1.in_features}")
+        #print(f"Agent {i + 1} - Policy Network:")
+        #print(f"Input Dimension: {agent.policy.fc1.in_features}")
         print(f"Output Dimension: {agent.policy.fc3.out_features}")
 
 

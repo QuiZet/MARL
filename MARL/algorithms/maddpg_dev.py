@@ -74,7 +74,7 @@ class MADDPG(object):
         agent_actions = []
         for i, agent in enumerate(self.agents):
             obs = observations[i]  # Observations for the current agent
-            print(f"Observations for agent {i}: {obs}")
+            #print(f"Observations for agent {i}: {obs}")
             torch_obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.pol_dev)
             action = agent.policy(torch_obs)
 
@@ -110,6 +110,7 @@ class MADDPG(object):
         with torch.no_grad():
             all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies, torch_next_obs)]
             if self.alg_types[agent_i] == 'MADDPG':
+                # (16 + 5) * 4 
                 trgt_vf_in = torch.cat((*torch_next_obs, *all_trgt_acs), dim=1)
             else:
                 trgt_vf_in = torch.cat((torch_next_obs[agent_i], all_trgt_acs[agent_i]), dim=1)
@@ -220,9 +221,9 @@ class MADDPG(object):
         agent_init_params = []
         #env.agent_types]
         alg_types = [adversary_alg if atype == 'adversary' else agent_alg for atype in env.possible_agents]
-        print(f'env.action_space:{env.action_space(env.possible_agents[0])}')
-        print(f'env.observation_space:{env.observation_space(env.possible_agents[0])}')
-        print(f'alg_types:{alg_types}')
+        #print(f'env.action_space:{env.action_space(env.possible_agents[0])}')
+        #print(f'env.observation_space:{env.observation_space(env.possible_agents[0])}')
+        #print(f'alg_types:{alg_types}')
         #for acsp, obsp, algtype in zip(env.action_space(env.possible_agents[0]), env.observation_space(env.possible_agents[0]),
         #                               alg_types):
 
@@ -247,7 +248,7 @@ class MADDPG(object):
 
             if algtype == "MADDPG":
                 num_agents = 4
-                num_in_critic = num_in_pol + num_out_pol * num_agents
+                num_in_critic = (num_in_pol + num_out_pol) * num_agents
             else:
                 num_in_critic = num_in_pol + num_out_pol
 

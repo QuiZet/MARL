@@ -13,21 +13,21 @@ class MLPNetwork(nn.Module):
         self.nonlin = F.relu
 
     def forward(self, X):
-        print("Input shape:", X.shape)
+        #print("Input shape:", X.shape)
         h1 = self.fc1(X.view(X.size(0), -1))
-        print("h1 shape:", h1.shape)
+        #print("h1 shape:", h1.shape)
         h1 = self.nonlin(h1)
-        print("h1 after nonlin shape:", h1.shape)
+        #print("h1 after nonlin shape:", h1.shape)
         h1 = self.bn1(h1)
-        print("h1 after bn1 shape:", h1.shape)
+        #print("h1 after bn1 shape:", h1.shape)
 
         h2 = self.fc2(h1)
-        print("h2 shape:", h2.shape)
+        #print("h2 shape:", h2.shape)
         h2 = self.nonlin(h2)
-        print("h2 after nonlin shape:", h2.shape)
+        #print("h2 after nonlin shape:", h2.shape)
         h2 = self.bn2(h2)
-        print("h2 after bn2 shape:", h2.shape)
+        #print("h2 after bn2 shape:", h2.shape)
 
         out = self.fc3(h2)
-        print("Output shape:", out.shape)
+        #print("Output shape:", out.shape)
         return out

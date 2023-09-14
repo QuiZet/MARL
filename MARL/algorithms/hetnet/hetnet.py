@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
 
-import wandb
-
 #Refer for env argumentshttps://pettingzoo.farama.org/environments/mpe/simple_tag/
 from pettingzoo.mpe import simple_tag_v3
 

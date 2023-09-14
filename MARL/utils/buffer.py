@@ -27,16 +27,11 @@ class ReplayBuffer(object):
         #needs optimization
         self.agent_names = ['adversary_0', 'adversary_1', 'adversary_2', 'agent_0']
         for odim, adim in zip(obs_dims, ac_dims):
-            #np.zeros((max_steps, 16)) for each agent
             self.obs_buffs.append(np.zeros((max_steps, odim)))
             self.ac_buffs.append(np.zeros((max_steps, adim)))
             self.rew_buffs.append(np.zeros(max_steps))
             self.next_obs_buffs.append(np.zeros((max_steps, odim)))
             self.done_buffs.append(np.zeros(max_steps))
-        
-        print(f'obs_buffs[3][1].shape:{self.obs_buffs[3][1].shape}')
-        #obs_buffs[0][2]:[[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
-        #obs_buffs[0,1,2,3].shape:(1000000, 16)
 
         self.filled_i = 0  # index of first empty location in buffer (last index when full)
         self.curr_i = 0  # current index to write to (ovewrite oldest data)
@@ -45,12 +40,20 @@ class ReplayBuffer(object):
         return self.filled_i
 
     #obs,actions,rewards,next_obs is dict
+    # all wrong, set the single agent information not combined together.
     def push(self, observations, actions, rewards, next_observations, dones):
-        #print("RB_push actions:",actions)
-        #print("RB_push rewards:",rewards)
-        #print(f"RB_push observations:{observations}")
-        #print("agent_0 reward:",rewards['agent_0'])
-        nentries = len(observations)#.shape[0]  # handle multiple parallel environments
+        #nentries = len(observations)#.shape[0]  # handle multiple parallel environments  # wrong, this is batch
+        # get the total entries for each agent
+        # it is expected that each agent has the same number of entries
+        # (i.e. batches or multiple parallel environments data combined)
+        nentries = 0
+        for obs in observations:
+            if observations[obs].ndim == 1:
+                nentries = 1
+            else:
+                print('[e] Code not implemented. nentries = number of examples i.e. .shape[0]')
+            break
+
         if self.curr_i + nentries > self.max_steps:
             rollover = self.max_steps - self.curr_i # num of indices to roll over
             for agent_i in range(self.num_agents):
@@ -66,28 +69,25 @@ class ReplayBuffer(object):
                                                    rollover)
             self.curr_i = 0
             self.filled_i = self.max_steps
-
         agents_idx = dict()
         idx = 0
         for key in observations:
-            agents_idx[idx] = key
+            agents_idx[key] = idx
             idx += 1
-            print('agent_idx:', agents_idx)
 
-        for agent_i, agent_idx in (agents_idx.items()):
-            print(f'observations[agent_idx]:{observations[agent_idx]}')
-            self.obs_buffs[agent_i][self.curr_i] = observations[agent_idx]
-                #observations[:, agent_i]
-            #actions are already batched by agent, so they are indexed differently
-            #print(f"self.obs_buffs[agent_i][self.curr_i]:{self.obs_buffs[agent_i][self.curr_i]}")
-            #print(f"observation to feed into RB: {observations[agent_idx]}")
-            self.ac_buffs[agent_i][self.curr_i] = actions[agent_idx]
-            #print("RB_actions:", actions[agent_idx])
-            #print(f"self.ac_buffs[agent_i][self.curr_i]:{self.ac_buffs[agent_i][self.curr_i]}")
-            self.rew_buffs[agent_i][self.curr_i] = rewards[agent_idx]
-            #print("RB_next_observations_agent_idx:",next_observations[agent_idx])
-            self.next_obs_buffs[agent_i][self.curr_i] = next_observations[agent_idx]
-            self.done_buffs[agent_i][self.curr_i] = dones[agent_idx]#dones[:, agent_idx]
+        for agent_i in (self.agent_names):
+            # self.obs_buffs[agents_idx[agent_i]] -> 100000,16
+            # curr_i = 42, nentries = 1
+            # self.obs_buffs[agents_idx[agent_i]][42:43] -> 1,16
+            # obs_buffs 1,16 - observation 16 or obs_buffs 1,14 - observation 14 
+            self.obs_buffs[agents_idx[agent_i]][self.curr_i:self.curr_i + nentries] = np.vstack(
+                np.expand_dims(observations[agent_i], 0)) # expand dimension at axes 0 -> 1,16
+            # actions are already batched by agent, so they are indexed differently
+            self.ac_buffs[agents_idx[agent_i]][self.curr_i:self.curr_i + nentries] = actions[agent_i]
+            self.rew_buffs[agents_idx[agent_i]][self.curr_i:self.curr_i + nentries] = rewards[agent_i]
+            self.next_obs_buffs[agents_idx[agent_i]][self.curr_i:self.curr_i + nentries] = np.vstack(
+                np.expand_dims(next_observations[agent_i], 0))
+            self.done_buffs[agents_idx[agent_i]][self.curr_i:self.curr_i + nentries] = dones[agent_i]
         self.curr_i += nentries
         if self.filled_i < self.max_steps:
             self.filled_i += nentries

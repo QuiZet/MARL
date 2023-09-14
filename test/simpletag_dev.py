@@ -11,16 +11,22 @@ from tensorboardX import SummaryWriter
 import sys
 sys.path.append('./')
 sys.path.append('../MARL/')
-import wandb
 
 from MARL.utils.buffer import ReplayBuffer
 from MARL.algorithms.maddpg_dev import MADDPG
+
+import dataclasses
+import yaml
+# keep this order to avoid circular import error
+from MARL.configs.method_configs import method_configs
+from MARL.utils_log import writer
+from rich.console import Console
+CONSOLE = Console(width=120)
+
 import pygame
 from pettingzoo.mpe import simple_tag_v3
 
-USE_CUDA = False  # torch.cuda.is_available()
-
-wandb.init(project="MARL")
+USE_CUDA = torch.cuda.is_available() # False
 
 def run(config):
     # Logging
@@ -37,7 +43,6 @@ def run(config):
     run_dir = model_dir / curr_run
     log_dir = run_dir / 'logs'
     os.makedirs(log_dir)
-    logger = SummaryWriter(str(log_dir))
 
     # Seeding
     torch.manual_seed(config.seed)
@@ -46,16 +51,10 @@ def run(config):
         torch.set_num_threads(config.n_training_threads)
 
     # Training
-    env = simple_tag_v3.parallel_env(render_mode='rgb', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=25, continuous_actions=True)
+    # render_mode human (slow) rgb (faster)
+    env = simple_tag_v3.parallel_env(render_mode='human', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=config.episode_length, continuous_actions=True)
     obs_dict, _ = env.reset()  # Get the initial observations and ignore the second return value
 
-    # a: [16, 16, 16, 14], observation spaces of agents
-    a = [env.observation_space(agent).shape[0] for agent in env.possible_agents]
-    print(f'a:{a}')
-    # b: [5, 5, 5, 5], action spaces of agents
-    b = [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) else env.action_space(agent).n for agent in env.possible_agents]
-    print(f'b:{b}')
-    
     #possible algs: MADDPG,DDPG
     #possible adversary algs: MADDPG,DDPG  
     maddpg = MADDPG.init_from_env(env, agent_alg=config.agent_alg,
@@ -65,105 +64,103 @@ def run(config):
                                   hidden_dim=config.hidden_dim)
 
     replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
-                                 [16,16,16,16],
+                                 [env.observation_space(agent).shape[0] for agent in env.possible_agents], # comment this line for fix size
                                  [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) 
                                   else env.action_space(agent).n for agent in env.possible_agents])
 
     #print("replay buffer observation dimensions",replay_buffer.obs_dims)
 
     t = 0
-    for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
-        print("Episodes %i-%i of %i" % (ep_i + 1,
-                                        ep_i + 1 + config.n_rollout_threads,
-                                        config.n_episodes))
-        obs = env.reset()
-        #print(f'obs:{obs}')
-        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
-        maddpg.prep_rollouts(device='cpu')
+    with writer.TimeWriter(writer, writer.EventName.TOTAL_TRAIN_TIME): # <--- non-mandatory 
+        for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
+            with writer.TimeWriter(writer, writer.EventName.ITER_TRAIN_TIME, step=ep_i) as train_t: # <--- non-mandatory 
+                #print("Episodes %i-%i of %i" % (ep_i + 1,
+                #                                ep_i + 1 + config.n_rollout_threads,
+                #                                config.n_episodes))
+                obs_dict, _ = env.reset()
 
-        #noise w.r.t. episode percent remaining
-        explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
-        maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
-        maddpg.reset_noise()
-
-        # Episode length
-        for et_i in range(config.episode_length):
-            print(f'config.episode_length:{et_i} {config.episode_length}')
-            print(f'current episode:{et_i}')  
-            
-            # Convert the observations to torch Tensor
-            torch_obs = []
-            for agent in env.possible_agents:
-                #print(f'agent:{agent}')
-                agent_obs = obs_dict[agent]
-                if agent_obs.shape != (16,):
-                #if agent == 'agent_0'and et_i == 0:
-                    agent_obs = np.insert(agent_obs, 14, 0, axis=-1)
-                    agent_obs = np.insert(agent_obs, 0, 0, axis=-1)
-                    agent_obs = np.squeeze(agent_obs)
-                    #agent_obs = [agent_obs]
-                    obs_dict[agent] = agent_obs
-                    #print(f'obs_dict {agent} : {obs_dict[agent]}')
-                    print(f'agent_obs {agent} shape : {agent_obs.shape}')  
-                #print(f'{agent} obs:{agent_obs}')
-                torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
-                #print(f'Tensor torch_obs:{torch_obs}')
-                #print(f'obs_dict {agent}:{obs_dict[agent]}')
-
-            #torch_obs = torch.cat(torch_obs, dim=1)  # Concatenate observations
-
-            # Get actions from the MADDPG policy and explore if needed
-            #print(f'torch_obs into step:{torch_obs}')
-            torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            #for agent, ac in zip(env.possible_agents, torch_agent_actions):
-            #    print(f'agent:{agent} ac:{type(ac)}')
-            agent_actions = {agent: ac for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-            #print(f'agent_actions:{agent_actions}')
-            # Take a step in the environment with the selected actions
-            next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
-            #print('agent_actions:', agent_actions)
-            #print('torch_agent_actions:', torch_agent_actions)
-            #print(f'next_obs:{next_obs}')
-            #print(f'next_obs[agent_0]:{next_obs["agent_0"]}')
-            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 14, 0, axis=-1)
-            next_obs["agent_0"]=np.insert(next_obs["agent_0"], 0, 0, axis=-1)
-            #print(f'zero padded next_obs[agent_0]:{next_obs["agent_0"]}')
-            #print(f'obs_dict:{obs_dict}')
-
-            replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
-            obs_dict = next_obs  # Update obs_dict for the next iteration
-            t += config.n_rollout_threads
-            if (len(replay_buffer) >= config.batch_size and
-                (t % config.steps_per_update) < config.n_rollout_threads):
-                #train critic, actor, target networks
-                if USE_CUDA:
-                    maddpg.prep_training(device='gpu')
-                else:
-                    maddpg.prep_training(device='cpu')
-                for u_i in range(config.n_rollout_threads):
-                    for a_i in range(maddpg.nagents):
-                        sample = replay_buffer.sample(config.batch_size, to_gpu=USE_CUDA)
-                        #exit(0)
-                        maddpg.update(sample, a_i, logger=logger)
-                    maddpg.update_all_targets()
                 maddpg.prep_rollouts(device='cpu')
-        
-        ep_rews = replay_buffer.get_average_rewards(config.episode_length * config.n_rollout_threads)
-        sum_rews = sum(ep_rews)
-        wandb.log({"sum_rews": sum_rews})
-        for a_i, a_ep_rew in enumerate(ep_rews):
-            logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
-            
-        if ep_i % config.save_interval < config.n_rollout_threads:
-            os.makedirs(run_dir / 'incremental', exist_ok=True)
-            maddpg.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
-            maddpg.save(run_dir / 'model.pt')
+                #noise w.r.t. episode percent remaining
+                explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
+                maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
+                maddpg.reset_noise()
+
+                # Episode length
+                for et_i in range(config.episode_length):
+
+                    # Convert the observations to torch Tensor
+                    torch_obs = []
+                    for agent in env.possible_agents:
+                        #print(f'agent:{agent}')
+                        agent_obs = [obs_dict[agent]]
+                        torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
+
+                    # Get actions from the MADDPG policy and explore if needed
+                    torch_agent_actions = maddpg.step(torch_obs, explore=True)
+                    # clip the action between a minimum and maximum value to prevent noisy warning messages
+                    agent_actions = {agent: np.clip(ac, 0, 1) for agent, ac in zip(env.possible_agents, torch_agent_actions)}
+                    # Take a step in the environment with the selected actions
+                    next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
+
+                    replay_buffer.push(obs_dict, agent_actions, rewards, next_obs, dones)  # Use obs_dict here instead of obs
+                    obs_dict = next_obs  # Update obs_dict for the next iteration
+                    t += config.n_rollout_threads
+                    if (len(replay_buffer) >= config.batch_size and
+                        (t % config.steps_per_update) < config.n_rollout_threads):
+                        #train critic, actor, target networks
+                        if USE_CUDA:
+                            maddpg.prep_training(device='gpu')
+                        else:
+                            maddpg.prep_training(device='cpu')
+                        for u_i in range(config.n_rollout_threads):
+                            for a_i in range(maddpg.nagents):
+                                sample = replay_buffer.sample(config.batch_size, to_gpu=USE_CUDA)
+                                maddpg.update(sample, a_i, logger=writer)
+                            maddpg.update_all_targets()
+                        maddpg.prep_rollouts(device='cpu')
+
+                    # render
+                    env.render()
+
+                    # Check if it should complete the episode because done or truncated is true in any agent
+                    if True:
+                        completed = False
+                        for agent in env.possible_agents:
+                            if dones[agent] or truncations[agent]:
+                                completed = True
+                        if completed: 
+                            obs_dict, _ = env.reset()
+                            break
+
+                ep_rews = replay_buffer.get_average_rewards(config.episode_length * config.n_rollout_threads)
+                sum_rews = sum(ep_rews)
+
+                # update_viewer_state
+                # a batch of train rays
+                writer.put_scalar(name="sum_rews", scalar=sum_rews, step=ep_i)
+                # write out the log
+                writer.write_out_storage()
+
+                if ep_i % config.save_interval < config.n_rollout_threads:
+                    os.makedirs(run_dir / 'incremental', exist_ok=True)
+                    maddpg.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
+                    maddpg.save(run_dir / 'model.pt')
+
+            # Skip the first two steps to avoid skewed timings that break the viewer rendering speed estimate.
+            if ep_i > 1:
+                train_num_actions_per_batch = config.episode_length # debug number for visualization
+                tmp_duration = train_t.duration
+                if tmp_duration == 0: tmp_duration = 0.00001
+                writer.put_time(
+                    name=writer.EventName.TRAIN_ITEMS_PER_SEC,
+                    duration=train_num_actions_per_batch / tmp_duration,#train_t.duration,
+                    step=ep_i,
+                    avg_over_steps=True,
+                )
         
 
     maddpg.save(run_dir / 'model.pt')
     env.close()
-    logger.export_scalars_to_json(str(log_dir / 'summary.json'))
-    logger.close()
     return env, maddpg
 
 def print_observation_space_dimensions(env):
@@ -185,22 +182,40 @@ if __name__ == '__main__':
     parser.add_argument("--n_rollout_threads", default=1, type=int)
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
-    parser.add_argument("--n_episodes", default=25000, type=int)
-    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument("--n_episodes", default=2000, type=int)
+    parser.add_argument("--episode_length", default=250, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--batch_size", default=1024, type=int, help="Batch size for model training")
-    parser.add_argument("--n_exploration_eps", default=25000, type=int)
+    parser.add_argument("--n_exploration_eps", default=2000, type=int)
     parser.add_argument("--init_noise_scale", default=0.3, type=float)
     parser.add_argument("--final_noise_scale", default=0.0, type=float)
     parser.add_argument("--save_interval", default=1000, type=int)
     parser.add_argument("--hidden_dim", default=64, type=int)
-    parser.add_argument("--lr", default=0.01, type=float)
-    parser.add_argument("--tau", default=0.01, type=float)
+    parser.add_argument("--lr", default=0.001, type=float)
+    parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--agent_alg", default="MADDPG", type=str, choices=['MADDPG', 'DDPG'])
     parser.add_argument("--adversary_alg", default="MADDPG", type=str, choices=['MADDPG', 'DDPG'])
-    parser.add_argument("--discrete_action", action='store_true')
+    parser.add_argument("--discrete_action", action='store_false')
 
     config = parser.parse_args()
+
+    # set up writers/profilers if enabled
+    # Choose a base configuration and override values.
+    # This part should be modified with the hydra configuration
+    config_logger = method_configs['basic']
+    config_logger.max_num_iterations = config.n_episodes
+    config_logger.set_timestamp()
+    if config_logger.load_config:
+        CONSOLE.log(f"Loading pre-set config from: {config.load_config}")
+        config_logger = yaml.load(config.load_config.read_text(), Loader=yaml.Loader)
+    """Logging configuration"""    
+    writer_log_path = config_logger.get_base_dir()# + '/log'# + config.logging.relative_log_dir
+    writer.setup_event_writer(config_logger.is_wandb_enabled(), config_logger.is_tensorboard_enabled(), entity='utokyo-marl', projectname = 'testlog', log_dir=writer_log_path)
+    writer.setup_local_writer(config_logger.logging, max_iter=config_logger.max_num_iterations, banner_messages=['banner_messages'])
+    writer.put_config(name="config_logger", config_dict=dataclasses.asdict(config_logger), step=0)
+    # print and save config
+    config_logger.print_to_terminal()
+    config_logger.save_config()
 
     env, maddpg = run(config)
     print_observation_space_dimensions(env)

@@ -4,3 +4,5 @@ pymunk
 opencv-python
 tensorboardX
 supersuit
+rich
+torchtyping

@@ -19,12 +19,20 @@ Helper function for building heterograph (supports up to 3 classes, default is 2
 '''
 
 #Q&A
-#1. what is pos?
+#1. what is pos? position?
 #2. what is with_state? -> with_state: w/or w/o including state summary node
 #3. whtat is with_self_loop? -> probably self loop for each node
 #4. what is with_two_state? -> probably allowing two state for each node
 #5. why is comm_range_P=-1? -> probably no range limit for P
 
+def cartesian_from_one_hot(one_hot):
+    dim = np.sqrt(len(one_hot))
+    hot_one = np.argmax(one_hot)
+
+    x = int(hot_one % dim)
+    y = int(np.floor(hot_one / dim))
+
+    return np.array([x, y])
 
 def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=None,
         with_state=False, with_self_loop=False, with_two_state=False,
@@ -34,13 +42,13 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
     pos_coords = [cartesian_from_one_hot(x) for x in pos]
     pos_dist = {}
 
-    C1nC1, C1nC2, C1nC2, C2nC1, C2nC2 = [], [], [], []
+    C1nC1, C1nC2, C2nC1, C2nC2 = [], [], [], []
     C1nC1_dist, C1nC2_dist, C2nC1_dist, C2nC2_dist = [], [], [], []
 
-    if num_C3 ==0:
-        C1_i = range(num_C1)
-        C2_i = range(num_C1, num_C1 + num_C2)
-
+    C1_i = range(num_C1) #class_1 agent index starts from 0, ends at (num_C1)-1
+    C2_i = range(num_C1, num_C1 + num_C2)
+    
+    if num_C3 == 0:
         for c1 in C1_i:
             for x2 in range(num_C1 + num_C2):
                 if c1 != x2:
@@ -65,25 +73,79 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
 
                     if comm_range_C2 == -1 or comm_dist <= comm_range_C2:
                         if x2 < num_C1:
-                            C2nC1.append([c1, x2])
+                            C2nC1.append([c2, x2])
                             C2nC1_dist.append(comm_dist)
                         else:
-                            C2nC2.append([c1, x2])
+                            C2nC2.append([c2, x2])
                             C2nC2_dist.append(comm_dist)
-    else:
-        #if num_C3 != 0:
+
+#Graph Data preperation for 3 Class scenario
+    else: # num_C3 !=0:
         C1nC3, C2nC3, C3nC1, C3nC2, C3nC3 = [], [], [], [], []
         C1nC3_dist, C2nC3_dist, C3nC1_dist, C3nC2_dist, C3nC3_dist = [], [], [], [], []
+        C3_i = range(num_C1 + num_C2, num_C1 + num_C2 + num_C3)
 
+        for c1 in C1_i:
+            for x in range(num_C1 + num_C2 + num_C3):
+                if c1 != x:
+                    key = (min(c1, x), max(c1, x))
+                    comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c1] - pos_coords[x], ord=2))
+                    pos_dist[key] = comm_dist
 
+                    if comm_range_C1 == -1 or comm_dist <= comm_range_C1:
+                        if x < num_C1:
+                            C1nC1.append([c1, x])
+                            C1nC1_dist.append(comm_dist)
+                        elif x < num_C1 + num_C2:
+                            C1nC2.append([c1, x])
+                            C1nC2_dist.append(comm_dist)
+                        else:
+                            C1nC3.append([c1,x])
+                            C1nC3_dist.append(comm_dist)
+
+        for c2 in C2_i:
+            for x in range(num_C1 + num_C2 + num_C3):
+                if c2 != x:
+                    key = (min(c2, x), max(c2, x))
+                    comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c2] - pos_coords[x], ord=2))
+                    pos_dist[key] = comm_dist
+
+                    if comm_range_C2 == -1 or comm_dist <= comm_range_C2:
+                        if x < num_C1:
+                            C2nC1.append([c2, x])
+                            C2nC1_dist.append(comm_dist)
+                        elif x < num_C1 + num_C2:
+                            C2nC2.append([c2, x])
+                            C2nC2_dist.append(comm_dist)
+                        else:
+                            C2nC3.append([c2,x])
+                            C2nC2_dist.append(comm_dist)
+
+        for c3 in C3_i:
+            for x in range(num_C1 + num_C2 + num_C3):
+                if c3 != x:
+                    key = (min(c3, x), max(c3, x))
+                    comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c3] - pos_coords[x], ord=2))
+                    pos_dist[key] = comm_dist
+
+                    if comm_range_C3 == -1 or comm_dist <= comm_range_C3:
+                        if x < num_C1:
+                            C3nC1.append([c3, x])
+                            C3nC1_dist.append(comm_dist)
+                        elif x < num_C1 + num_C2:
+                            C3nC2.append([c3, x])
+                            C3nC2_dist.append(comm_dist)
+                        else:
+                            C3nC3.append([c3,x])
+                            C3nC3_dist.append(comm_dist)
 
     if with_state:
         if with_two_state:
-            num_nodes_dict = {'P': num_C1, 'A': num_C2, 'state': 2}
+            num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 2}
         else:
-            num_nodes_dict = {'P': num_C1, 'A': num_C2, 'state': 1}
+            num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 1}
     else:
-        num_nodes_dict = {'P': num_C1, 'A': num_C2}
+        num_nodes_dict = {'C1': num_C1, 'C2': num_C2}
 
     data_dict = {}
 
@@ -160,12 +222,3 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
     # g['c2c2'].dstdata.update({'point': A_pos_coords})
 
     return g
-
-def cartesian_from_one_hot(one_hot):
-    dim = np.sqrt(len(one_hot))
-    hot_one = np.argmax(one_hot)
-
-    x = int(hot_one % dim)
-    y = int(np.floor(hot_one / dim))
-
-    return np.array([x, y])

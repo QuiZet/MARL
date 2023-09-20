@@ -19,7 +19,7 @@ Helper function for building heterograph (supports up to 3 classes, default is 2
 '''
 
 #Q&A
-#1. what is pos? position?
+#1. what is pos? -> ordered list of one hot of each agents position
 #2. what is with_state? -> with_state: w/or w/o including state summary node
 #3. whtat is with_self_loop? -> probably self loop for each node
 #4. what is with_two_state? -> probably allowing two state for each node
@@ -141,29 +141,37 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
 
     if with_state:
         if with_two_state:
-            num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 2}
+            if num_C3 == 0: #if there is no Class 3
+                num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 2}
+            else:
+                num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'C3':num_C3, 'state': 2}
         else:
-            num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 1}
+            if num_C3 == 0:
+                num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'state': 1}
+            else:
+                num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'C3':num_C3, 'state': 1}
     else:
-        num_nodes_dict = {'C1': num_C1, 'C2': num_C2}
+        if num_C3 == 0:
+            num_nodes_dict = {'C1': num_C1, 'C2': num_C2}
+        else:
+            num_nodes_dict = {'C1': num_C1, 'C2': num_C2, 'C3':num_C3}
 
     data_dict = {}
 
-    c1c1_u, c2c1_u, c1c2_u, c2c2_u = [], [], [], []
-    c1c1_v, c2c1_v, c1c2_v, c2c2_v = [], [], [], []
+    c1c1_u, c1c2_u, c1c3_u, c2c1_u, c2c2_u, c2c3_u, c3c1_u, c3c2_u, c3c3_u = [], [], [], [], [], [], [], [], []
+    c1c1_v, c1c2_v, c1c3_v, c2c1_v, c2c2_v, c2c3_v, c3c1_v, c3c2_v, c3c3_v = [], [], [], [], [], [], [], [], []
 
     for i in range(len(C1nC1)):
         c1c1_u.append(C1nC1[i][0])
         c1c1_v.append(C1nC1[i][1])
 
-    if with_self_loop:
-        for i in range(num_C1):
-            c1c1_u.append(i)
-            c1c1_v.append(i)
-
     for i in range(len(C1nC2)):
         c1c2_u.append(C1nC2[i][0])
         c1c2_v.append(C1nC2[i][1] - num_C1)
+
+    for i in range(len(C1nC3)):
+        c1c3_u.append(C1nC3[i][0])
+        c1c3_v.append(C1nC3[i][1] - num_C1 - num_C2)
 
     for i in range(len(C2nC1)):
         c2c1_u.append(C2nC1[i][0] - num_C1)
@@ -173,31 +181,65 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
         c2c2_u.append(C2nC2[i][0] - num_C1)
         c2c2_v.append(C2nC2[i][1] - num_C1)
 
+    for i in range(len(C2nC3)):
+        c2c3_u.append(C2nC3[i][0] - num_C1)
+        c2c3_v.append(C2nC3[i][1] - num_C1 - num_C2)
+    
+    for i in range(len(C3nC1)):
+        c3c1_u.append(C3nC1[i][0] - num_C1 - num_C2)
+        c3c1_v.append(C3nC1[i][1])
+    
+    for i in range(len(C3nC2)):
+        c3c2_u.append(C3nC2[i][0] - num_C1 - num_C2)
+        c3c2_v.append(C3nC2[i][1] - num_C1)
+    
+    for i in range(len(C3nC3)):
+        c3c3_u.append(C3nC3[i][0] - num_C1 - num_C2)
+        c3c3_v.append(C3nC3[i][1] - num_C1 - num_C2)
+
     if with_self_loop:
+        for i in range(num_C1):
+            c1c1_u.append(i)
+            c1c1_v.append(i)
         for i in range(num_C2):
             c2c2_u.append(i)
             c2c2_v.append(i)
+        if num_C3 != 0:
+            for i in range(num_C3):
+                c3c3_u.append(i)
+                c3c3_v.append(i)
 
     data_dict[('C1', 'c1c1', 'C1')] = (c1c1_u, c1c1_v)
     data_dict[('C1', 'c1c2', 'C2')] = (c1c2_u, c1c2_v)
+    data_dict[('C1', 'c1c3', 'C3')] = (c1c3_u, c1c3_v)
     data_dict[('C2', 'c2c1', 'C1')] = (c2c1_u, c2c1_v)
     data_dict[('C2', 'c2c2', 'C2')] = (c2c2_u, c2c2_v)
+    data_dict[('C2', 'c2c3', 'C3')] = (c2c3_u, c2c3_v)
+    data_dict[('C3', 'c3c1', 'C1')] = (c3c1_u, c3c1_v)
+    data_dict[('C3', 'c3c2', 'C2')] = (c3c2_u, c3c2_v)
+    data_dict[('C3', 'c3c3', 'C3')] = (c3c3_u, c3c3_v)
 
     if with_state:
         if with_two_state:
             # state node #0 is P state node
-            data_dict[('P','p2s','state')] = (list(range(num_C1)),
+            data_dict[('C1','c1_to_s','state')] = (list(range(num_C1)),
                                               [0 for i in range(num_C1)])
             # state node #1 is A state node
-            data_dict[('A','a2s','state')] = (list(range(num_C2)),
+            data_dict[('C2','c2_to_s','state')] = (list(range(num_C2)),
                                               [1 for i in range(num_C2)])
             data_dict[('state', 'in', 'state')] = ([0, 1], [0, 1])
-        else:
-            data_dict[('P','p2s','state')] = (list(range(num_C1)),
+            if num_C3 != 0:
+                data_dict[('C3','c3_to_s','state')] = (list(range(num_C3)),
+                                                  [2 for i in range(num_C3)])
+        else: # with one state
+            data_dict[('C1','c1_to_s','state')] = (list(range(num_C1)),
                                               np.zeros(num_C1, dtype=np.int64))
-            data_dict[('A','a2s','state')] = (list(range(num_C2)),
+            data_dict[('C2','c2_to_s','state')] = (list(range(num_C2)),
                                               np.zeros(num_C2, dtype=np.int64))
             data_dict[('state', 'in', 'state')] = ([0], [0])
+            if num_C3 != 0:
+                data_dict[('C3','c3_to_s','state')] = (list(range(num_C3)),
+                                                  np.zeros(num_C3, dtype=np.int64))
     
     #dgl.heterograph reference:https://docs.dgl.ai/en/0.8.x/generated/dgl.heterograph.html#dgl.heterograph
     g = dgl.heterograph(data_dict, num_nodes_dict=num_nodes_dict)
@@ -206,8 +248,14 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
     #Return an edge data view for setting/getting edge features.
     g['c1c1'].edata.update({'dist': torch.Tensor(C1nC1_dist)})
     g['c1c2'].edata.update({'dist': torch.Tensor(C1nC2_dist)})
+    g['c1c3'].edata.update({'dist': torch.Tensor(C1nC3_dist)})
     g['c2c1'].edata.update({'dist': torch.Tensor(C2nC1_dist)})
     g['c2c2'].edata.update({'dist': torch.Tensor(C2nC2_dist)})
+    g['c2c3'].edata.update({'dist': torch.Tensor(C2nC3_dist)})
+    g['c3c1'].edata.update({'dist': torch.Tensor(C3nC1_dist)})
+    g['c3c2'].edata.update({'dist': torch.Tensor(C3nC2_dist)})
+    g['c3c3'].edata.update({'dist': torch.Tensor(C3nC3_dist)})
+    
 
     # g['c1c1'].srcdata.update({'point': P_pos_coords})
     # g['c1c1'].dstdata.update({'point': P_pos_coords})

@@ -66,6 +66,7 @@ def run(config):
                                  [env.action_space(agent).shape[0] if isinstance(env.action_space(agent), Box) else env.action_space(agent).n for agent in env.possible_agents])
  
     t = 0
+    #episode length
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
         print("Episodes %i-%i of %i" % (ep_i + 1,
                                         ep_i + 1 + config.n_rollout_threads,
@@ -75,12 +76,12 @@ def run(config):
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
         maddpg.prep_rollouts(device='cpu')
 
+        #noise w.r.t. episode percent remaining
         explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
         maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
         maddpg.reset_noise()
 
-
-#git test
+        #sequence length
         for et_i in range(config.episode_length):
             print(f'config.episode_length:{et_i} {config.episode_length}')
             # rearrange observations to be per agent, and convert to torch Variable
@@ -103,7 +104,11 @@ def run(config):
             # this is where you would insert your policy
             #actions = {agent: parallel_env.action_space(agent).sample() for agent in parallel_env.agents}  
             #print(f'actions:{actions}')
-            
+            torch_obs = Variable(torch.Tensor(np.vstack(obs)), requires_grad=False)
+            torch_agent_actions = maddpg.step(torch_obs, explore=True)
+            agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
+            actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
+
 
 
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)

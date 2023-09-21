@@ -1,0 +1,7 @@
+parameters:
+  num_class_1: 2
+  num_class_2: 1
+  num_class_3: 2
+  max_cycles: 25
+  user: root
+  hid_dim: 64

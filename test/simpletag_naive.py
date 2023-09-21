@@ -14,7 +14,7 @@ def parallel_main():
     if True:
         print('Ctrl-Alt+C to exit')
         # https://pettingzoo.farama.org/api/parallel/
-        parallel_env = simple_tag_v3.parallel_env(render_mode='human', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=25, continuous_actions=True)
+        parallel_env = simple_tag_v3.parallel_env(render_mode='rgb', num_good=1, num_adversaries=3, num_obstacles=2, max_cycles=25, continuous_actions=True)
         obs = parallel_env.reset()
 
         # Set the device
@@ -66,9 +66,9 @@ def parallel_main():
                 if len(actions_for_env) == 0:
                     break
 
-                #print(f'actions:{actions_for_env}')
+                print(f'actions:{actions_for_env}')
                 next_obs, rewards, terminations, truncations, infos = parallel_env.step(actions_for_env)
-                #print(f'all:{next_obs, rewards, terminations, truncations, infos}')
+                print(f'all:{next_obs, rewards, terminations, truncations, infos}')
                 # It seems an error in the pipeline
                 if len(next_obs) == 0:
                     #print('len is 0')

@@ -919,7 +919,7 @@ class HeteroGATLayerLossyReal(nn.Module):
 class MultiHeteroGATLayerLossyReal(nn.Module):
     def __init__(self, in_dim, out_dim, num_heads, merge='cat',
             comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1, min_comm_loss=0, max_comm_loss=0.3):
-        super(MultiHeteroGATLayerLossyReal, self).__init__()
+        super().__init__()
 
         self._num_heads = num_heads
         self._merge = merge

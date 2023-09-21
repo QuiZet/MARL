@@ -169,7 +169,7 @@ class HeteroGATLayerReal(nn.Module):
         if 'C1' in feat_dict:
             # c1c1
             Whc1c1 = self.fc['c1c1'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['C1'])
-            g.nodes['P'].data['Wh_c1c1'] = Whc1c1
+            g.nodes['C1'].data['Wh_c1c1'] = Whc1c1
 
             # c1c2
             Whc1c2 = self.fc['c1c2'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['C2'])
@@ -217,7 +217,7 @@ class HeteroGATLayerReal(nn.Module):
             g.nodes['C2'].data['Wh_c2s'] = Whc2s
 
         if 'C3' in feat_dict:
-            Whc32s = self.fc['c3s'](feat_dict['C3']).view(-1, self._num_heads, self._out_dim['state'])
+            Whc3s = self.fc['c3s'](feat_dict['C3']).view(-1, self._num_heads, self._out_dim['state'])
             g.nodes['C3'].data['Wh_c3s'] = Whc3s
 
         Whin = self.fc['in'](feat_dict['state'].double()).view(-1, self._num_heads, self._out_dim['state'])
@@ -253,8 +253,8 @@ class HeteroGATLayerReal(nn.Module):
             g['c1c2'].dstdata.update({'Attn_dst_c1c2': Attn_dst_c1c2})
             '''
             Note:
-                g.dstdata['Attn_dst_c1c2']['A'] gives the data tensor
-                but g.dstdata['A'] gives {}
+                g.dstdata['Attn_dst_c1c2']['C2'] gives the data tensor
+                but g.dstdata['C2'] gives {}
                 so the first key right after dstdata is the feature key
                     not the node type key
             '''
@@ -918,7 +918,7 @@ class HeteroGATLayerLossyReal(nn.Module):
 # merge = 'cat' or 'avg'
 class MultiHeteroGATLayerLossyReal(nn.Module):
     def __init__(self, in_dim, out_dim, num_heads, merge='cat',
-            comm_range_P=-1, comm_range_A=-1, min_comm_loss=0, max_comm_loss=0.3):
+            comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1, min_comm_loss=0, max_comm_loss=0.3):
         super(MultiHeteroGATLayerLossyReal, self).__init__()
 
         self._num_heads = num_heads
@@ -926,12 +926,12 @@ class MultiHeteroGATLayerLossyReal(nn.Module):
 
         if self._merge == 'cat':
             self.gat_conv = HeteroGATLayerLossyReal(in_dim, out_dim, num_heads,
-                comm_range_P=comm_range_P, comm_range_A=comm_range_A,
+                comm_range_C1=comm_range_C1, comm_range_C2=comm_range_C2, comm_range_C3=comm_range_C3,
                 min_comm_loss=min_comm_loss, max_comm_loss=max_comm_loss)
         else:
             self.gat_conv = HeteroGATLayerLossyReal(in_dim, out_dim, num_heads,
-                                                    use_relu=False, comm_range_P=comm_range_P,
-                                                    comm_range_A=comm_range_A,
+                                                    use_relu=False, comm_range_C1=comm_range_C1,
+                                                    comm_range_C2=comm_range_C2, comm_range_C3=comm_range_C3,
                                                     min_comm_loss=min_comm_loss, max_comm_loss=max_comm_loss)
 
     def forward(self, g, feat_dict):

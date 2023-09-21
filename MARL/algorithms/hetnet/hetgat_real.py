@@ -52,7 +52,7 @@ def real_comm_loss(dist, h, bitless_k, bin_size=32):
 
 class HeteroGATLayerReal(nn.Module):
     def __init__(self, in_dim, out_dim, num_heads, l_alpha=0.2, use_relu=True):
-        super(HeteroGATLayerReal, self).__init__()
+        super().__init__()
         self._num_heads = num_heads
         self._in_dim = in_dim
         self._out_dim = out_dim
@@ -98,8 +98,8 @@ class HeteroGATLayerReal(nn.Module):
         self.c3c3_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
         self.c3c3_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
         # state node
-        # self.attn_fc_p2s = nn.Linear(2 * out_dim['state'], 1, bias=False)
-        # self.attn_fc_a2s = nn.Linear(2 * out_dim['state'], 1, bias=False)
+        # self.attn_fc_c1s = nn.Linear(2 * out_dim['state'], 1, bias=False)
+        # self.attn_fc_c2s = nn.Linear(2 * out_dim['state'], 1, bias=False)
         self.c1s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
         self.c1s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
         self.c2s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
@@ -209,11 +209,11 @@ class HeteroGATLayerReal(nn.Module):
 
         # for state-related edges
         if 'C1' in feat_dict:
-            Whc12s = self.fc['c1s'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['state'])
+            Whc1s = self.fc['c1s'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['state'])
             g.nodes['C1'].data['Wh_c1s'] = Whc1s
 
         if 'C2' in feat_dict:
-            Whc22s = self.fc['c2s'](feat_dict['C2']).view(-1, self._num_heads, self._out_dim['state'])
+            Whc2s = self.fc['c2s'](feat_dict['C2']).view(-1, self._num_heads, self._out_dim['state'])
             g.nodes['C2'].data['Wh_c2s'] = Whc2s
 
         if 'C3' in feat_dict:
@@ -269,6 +269,18 @@ class HeteroGATLayerReal(nn.Module):
                                 fn.sum('m_c1c2', 'ft_c1c2'))
             # results =  g.nodes['A'].data['ft_c1c2']
 
+        #c1c3
+        if g['c1c3'].number_of_edges() > 0:
+            Attn_src_c1c3 = (Whc1c3 * self.c1c3_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c1c3 = (Whc3 * self.c1c3_dst).sum(dim=-1).unsqueeze(-1)
+            g['c1c3'].srcdata.update({'Attn_src_c1c3': Attn_src_c1c3})
+            g['c1c3'].dstdata.update({'Attn_dst_c1c3': Attn_dst_c1c3})
+            g.apply_edges(fn.u_add_v('Attn_src_c1c3', 'Attn_dst_c1c3', 'e_c1c3'))
+            e_c1c3 = self.leaky_relu(g['c1c3'].edata.pop('e_c1c3'))
+            g['c1c3'].edata['a_c1c3'] = edge_softmax(g['c1c3'], e_c1c3)
+            g['c1c3'].update_all(fn.u_mul_e('Wh_c1c3', 'a_c1c3', 'm_c1c3'),
+                                fn.sum('m_c1c3', 'ft_c1c3'))
+
         # c2c1
         if g['c2c1'].number_of_edges() > 0:
             Attn_src_c2c1 = (Whc2c1 * self.c2c1_src).sum(dim=-1).unsqueeze(-1)
@@ -301,37 +313,101 @@ class HeteroGATLayerReal(nn.Module):
             g['c2c2'].update_all(fn.u_mul_e('Wh_c2c2', 'a_c2c2', 'm_c2c2'),
                                 fn.sum('m_c2c2', 'ft_c2c2'))
 
-        # p2s
-        if g['p2s'].number_of_edges() > 0:
-            Attn_src_p2s = (Whc12s * self.p2s_src).sum(dim=-1).unsqueeze(-1)
-            Attn_dst_p2s = (Whin * self.p2s_dst).sum(dim=-1).unsqueeze(-1)
-            g['p2s'].srcdata.update({'Attn_src_p2s': Attn_src_p2s})
-            g['p2s'].dstdata.update({'Attn_dst_p2s': Attn_dst_p2s})
+        #c2c3
+        if g['c2c3'].number_of_edges() > 0:
+            Attn_src_c2c3 = (Whc2c3 * self.c2c3_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c2c3 = (Whc3 * self.c2c3_dst).sum(dim=-1).unsqueeze(-1)
+            g['c2c3'].srcdata.update({'Attn_src_c2c3': Attn_src_c2c3})
+            g['c2c3'].dstdata.update({'Attn_dst_c2c3': Attn_dst_c2c3})
+            g.apply_edges(fn.u_add_v('Attn_src_c2c3', 'Attn_dst_c2c3', 'e_c2c3'))
+            e_c2c3 = self.leaky_relu(g['c2c3'].edata.pop('e_c2c3'))
+            g['c2c3'].edata['a_c2c3'] = edge_softmax(g['c2c3'], e_c2c3)
+            g['c2c3'].update_all(fn.u_mul_e('Wh_c2c3', 'a_c2c3', 'm_c2c3'),
+                                fn.sum('m_c2c3', 'ft_c2c3'))
+            
+        #c3c1
+        if g['c3c1'].number_of_edges() > 0:
+            Attn_src_c3c1 = (Whc3c1 * self.c3c1_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c3c1 = (Whc1 * self.c3c1_dst).sum(dim=-1).unsqueeze(-1)
+            g['c3c1'].srcdata.update({'Attn_src_c3c1': Attn_src_c3c1})
+            g['c3c1'].dstdata.update({'Attn_dst_c3c1': Attn_dst_c3c1})
+            g.apply_edges(fn.u_add_v('Attn_src_c3c1', 'Attn_dst_c3c1', 'e_c3c1'))
+            e_c3c1 = self.leaky_relu(g['c3c1'].edata.pop('e_c3c1'))
+            g['c3c1'].edata['a_c3c1'] = edge_softmax(g['c3c1'], e_c3c1)
+            g['c3c1'].update_all(fn.u_mul_e('Wh_c3c1', 'a_c3c1', 'm_c3c1'),
+                                fn.sum('m_c3c1', 'ft_c3c1'))
+            
+        #c3c2
+        if g['c3c2'].number_of_edges() > 0:
+            Attn_src_c3c2 = (Whc3c2 * self.c3c2_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c3c2 = (Whc2 * self.c3c2_dst).sum(dim=-1).unsqueeze(-1)
+            g['c3c2'].srcdata.update({'Attn_src_c3c2': Attn_src_c3c2})
+            g['c3c2'].dstdata.update({'Attn_dst_c3c2': Attn_dst_c3c2})
+            g.apply_edges(fn.u_add_v('Attn_src_c3c2', 'Attn_dst_c3c2', 'e_c3c2'))
+            e_c3c2 = self.leaky_relu(g['c3c2'].edata.pop('e_c3c2'))
+            g['c3c2'].edata['a_c3c2'] = edge_softmax(g['c3c2'], e_c3c2)
+            g['c3c2'].update_all(fn.u_mul_e('Wh_c3c2', 'a_c3c2', 'm_c3c2'),
+                                fn.sum('m_c3c2', 'ft_c3c2'))
+            
+        #c3c3
+        if g['c3c3'].number_of_edges() > 0:
+            Attn_src_c3c3 = (Whc3c3 * self.c3c3_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c3c3 = (Whc3 * self.c3c3_dst).sum(dim=-1).unsqueeze(-1)
+            g['c3c3'].srcdata.update({'Attn_src_c3c3': Attn_src_c3c3})
+            g['c3c3'].dstdata.update({'Attn_dst_c3c3': Attn_dst_c3c3})
+            g.apply_edges(fn.u_add_v('Attn_src_c3c3', 'Attn_dst_c3c3', 'e_c3c3'))
+            e_c3c3 = self.leaky_relu(g['c3c3'].edata.pop('e_c3c3'))
+            g['c3c3'].edata['a_c3c3'] = edge_softmax(g['c3c3'], e_c3c3)
+            g['c3c3'].update_all(fn.u_mul_e('Wh_c3c3', 'a_c3c3', 'm_c3c3'),
+                                fn.sum('m_c3c3', 'ft_c3c3'))
 
-            g['p2s'].apply_edges(fn.u_add_v('Attn_src_p2s', 'Attn_dst_p2s', 'e_p2s'))
-            e_p2s = self.leaky_relu(g['p2s'].edata.pop('e_p2s'))
+        # c1s
+        if g['c1s'].number_of_edges() > 0:
+            Attn_src_c1s = (Whc1s * self.c1s_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c1s = (Whin * self.c1s_dst).sum(dim=-1).unsqueeze(-1)
+            g['c1s'].srcdata.update({'Attn_src_c1s': Attn_src_c1s})
+            g['c1s'].dstdata.update({'Attn_dst_c1s': Attn_dst_c1s})
+
+            g['c1s'].apply_edges(fn.u_add_v('Attn_src_c1s', 'Attn_dst_c1s', 'e_c1s'))
+            e_c1s = self.leaky_relu(g['c1s'].edata.pop('e_c1s'))
 
             # compute softmax
-            g['p2s'].edata['a_p2s'] = edge_softmax(g['p2s'], e_p2s)
+            g['c1s'].edata['a_c1s'] = edge_softmax(g['c1s'], e_c1s)
             # message passing
-            g['p2s'].update_all(fn.u_mul_e('Wh_p2s', 'a_p2s', 'm_p2s'),
-                                fn.sum('m_p2s', 'ft_p2s'))
+            g['c1s'].update_all(fn.u_mul_e('Wh_c1s', 'a_c1s', 'm_c1s'),
+                                fn.sum('m_c1s', 'ft_c1s'))
 
-        # a2s
-        if g['a2s'].number_of_edges() > 0:
-            Attn_src_a2s = (Whc22s * self.a2s_src).sum(dim=-1).unsqueeze(-1)
-            Attn_dst_a2s = (Whin * self.a2s_dst).sum(dim=-1).unsqueeze(-1)
-            g['a2s'].srcdata.update({'Attn_src_a2s': Attn_src_a2s})
-            g['a2s'].dstdata.update({'Attn_dst_a2s': Attn_dst_a2s})
+        # c2s
+        if g['c2s'].number_of_edges() > 0:
+            Attn_src_c2s = (Whc2s * self.c2s_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c2s = (Whin * self.c2s_dst).sum(dim=-1).unsqueeze(-1)
+            g['c2s'].srcdata.update({'Attn_src_c2s': Attn_src_c2s})
+            g['c2s'].dstdata.update({'Attn_dst_c2s': Attn_dst_c2s})
 
-            g['a2s'].apply_edges(fn.u_add_v('Attn_src_a2s', 'Attn_dst_a2s', 'e_a2s'))
-            e_a2s = self.leaky_relu(g['a2s'].edata.pop('e_a2s'))
+            g['c2s'].apply_edges(fn.u_add_v('Attn_src_c2s', 'Attn_dst_c2s', 'e_c2s'))
+            e_c2s = self.leaky_relu(g['c2s'].edata.pop('e_c2s'))
 
             # compute softmax
-            g['a2s'].edata['a_a2s'] = edge_softmax(g['a2s'], e_a2s)
+            g['c2s'].edata['a_c2s'] = edge_softmax(g['c2s'], e_c2s)
             # message passing
-            g['a2s'].update_all(fn.u_mul_e('Wh_a2s', 'a_a2s', 'm_a2s'),
-                                fn.sum('m_a2s', 'ft_a2s'))
+            g['c2s'].update_all(fn.u_mul_e('Wh_c2s', 'a_c2s', 'm_c2s'),
+                                fn.sum('m_c2s', 'ft_c2s'))
+
+        #c3s
+        if g['c3s'].number_of_edges() > 0:
+            Attn_src_c3s = (Whc3s * self.c3s_src).sum(dim=-1).unsqueeze(-1)
+            Attn_dst_c3s = (Whin * self.c3s_dst).sum(dim=-1).unsqueeze(-1)
+            g['c3s'].srcdata.update({'Attn_src_c3s': Attn_src_c3s})
+            g['c3s'].dstdata.update({'Attn_dst_c3s': Attn_dst_c3s})
+
+            g['c3s'].apply_edges(fn.u_add_v('Attn_src_c3s', 'Attn_dst_c3s', 'e_c3s'))
+            e_c3s = self.leaky_relu(g['c3s'].edata.pop('e_c3s'))
+
+            # compute softmax
+            g['c3s'].edata['a_c3s'] = edge_softmax(g['c3s'], e_c3s)
+            # message passing
+            g['c3s'].update_all(fn.u_mul_e('Wh_c3s', 'a_c3s', 'm_c3s'),
+                                fn.sum('m_c3s', 'ft_c3s'))
 
         '''
         Combine features from subgraphs
@@ -340,41 +416,61 @@ class HeteroGATLayerReal(nn.Module):
         '''
         valid_ntypes = []
 
-        if 'P' in feat_dict:
-            valid_ntypes.append('P')
-            # new feature of P
-            Whc1_new = g.nodes['P'].data['Wh_P'].clone()
+        if 'C1' in feat_dict:
+            valid_ntypes.append('C1')
+            # new feature of C1
+            Whc1_new = g.nodes['C1'].data['Wh_C1'].clone()
 
             if g['c1c1'].number_of_edges() > 0:
-                Whc1_new += g.nodes['P'].data['ft_c1c1']
+                Whc1_new += g.nodes['C1'].data['ft_c1c1']
             if g['c2c1'].number_of_edges() > 0:
-                Whc1_new += g.nodes['P'].data['ft_c2c1']
+                Whc1_new += g.nodes['C1'].data['ft_c2c1']
+            if g['c3c1'].number_of_edges() > 0:
+                Whc1_new += g.nodes['C1'].data['ft_c3c1']
 
-            g.nodes['P'].data['h'] = Whc1_new
+            g.nodes['C1'].data['h'] = Whc1_new
 
-        if 'A' in feat_dict:
-            valid_ntypes.append('A')
-            # new feature of A
-            Whc2_new = g.nodes['A'].data['Wh_A'].clone()
+        if 'C2' in feat_dict:
+            valid_ntypes.append('C2')
+            # new feature of C2
+            Whc2_new = g.nodes['C2'].data['Wh_C2'].clone()
 
             if g['c1c2'].number_of_edges() > 0:
-                Whc2_new += g.nodes['A'].data['ft_c1c2']
+                Whc2_new += g.nodes['C2'].data['ft_c1c2']
             if g['c2c2'].number_of_edges() > 0:
-                Whc2_new += g.nodes['A'].data['ft_c2c2']
+                Whc2_new += g.nodes['C2'].data['ft_c2c2']
+            if g['c3c2'].number_of_edges() > 0:
+                Whc2_new += g.nodes['C2'].data['ft_c3c2']
 
-            g.nodes['A'].data['h'] = Whc2_new
+            g.nodes['C2'].data['h'] = Whc2_new
+
+        if 'C3' in feat_dict:
+            valid_ntypes.append('C3')
+            # new feature of C3
+            Whc3_new = g.nodes['C3'].data['Wh_C3'].clone()
+
+            if g['c1c3'].number_of_edges() > 0:
+                Whc3_new += g.nodes['C3'].data['ft_c1c3']
+            if g['c2c3'].number_of_edges() > 0:
+                Whc3_new += g.nodes['C3'].data['ft_c2c3']
+            if g['c3c3'].number_of_edges() > 0:
+                Whc3_new += g.nodes['C3'].data['ft_c3c3']
+
+            g.nodes['C3'].data['h'] = Whc3_new
 
         valid_ntypes.append('state')
         # new feature of state
         Whstate_new = g.nodes['state'].data['Wh_in'].clone()
         # + \
-        #     g.nodes['state'].data['ft_p2s'] + \
-        #         g.nodes['state'].data['ft_a2s']
+        #     g.nodes['state'].data['ft_c1s'] + \
+        #         g.nodes['state'].data['ft_c2s']
 
-        if g['p2s'].number_of_edges() > 0:
-            Whstate_new += g.nodes['state'].data['ft_p2s']
-        if g['a2s'].number_of_edges() > 0:
-            Whstate_new += g.nodes['state'].data['ft_a2s']
+        if g['c1s'].number_of_edges() > 0:
+            Whstate_new += g.nodes['state'].data['ft_c1s']
+        if g['c2s'].number_of_edges() > 0:
+            Whstate_new += g.nodes['state'].data['ft_c2s']
+        if g['c3s'].number_of_edges() > 0:
+            Whstate_new += g.nodes['state'].data['ft_c3s']
 
         g.nodes['state'].data['h'] = Whstate_new
 
@@ -388,7 +484,7 @@ class HeteroGATLayerReal(nn.Module):
 class MultiHeteroGATLayerReal(nn.Module):
 
     def __init__(self, in_dim, out_dim, num_heads, merge='cat'):
-        super(MultiHeteroGATLayerReal, self).__init__()
+        super().__init__()
 
         self._num_heads = num_heads
         self._merge = merge
@@ -404,11 +500,14 @@ class MultiHeteroGATLayerReal(nn.Module):
 
         valid_ntypes = []
 
-        if 'P' in feat_dict:
-            valid_ntypes.append('P')
+        if 'C1' in feat_dict:
+            valid_ntypes.append('C1')
 
-        if 'A' in feat_dict:
-            valid_ntypes.append('A')
+        if 'C2' in feat_dict:
+            valid_ntypes.append('C2')
+        
+        if 'C3' in feat_dict:
+            valid_ntypes.append('C3')
 
         valid_ntypes.append('state')
 
@@ -425,27 +524,35 @@ class MultiHeteroGATLayerReal(nn.Module):
 
 class HeteroGATLayerLossyReal(nn.Module):
     def __init__(self, in_dim, out_dim, num_heads, l_alpha=0.2, use_relu=True,
-            comm_range_P=-1, comm_range_A=-1, min_comm_loss=0, max_comm_loss=0.3):
-        super(HeteroGATLayerLossyReal, self).__init__()
+            comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1, min_comm_loss=0, max_comm_loss=0.3):
+        super().__init__()
 
         self._num_heads = num_heads
         self._in_dim = in_dim
         self._out_dim = out_dim
 
-        self.comm_range_P = comm_range_P
-        self.comm_range_A = comm_range_A
+        self.comm_range_C1 = comm_range_C1
+        self.comm_range_C2 = comm_range_C2
+        self.comm_range_C3 = comm_range_C3
         self.min_comm_loss = min_comm_loss
         self.max_comm_loss = max_comm_loss
 
         self.fc = nn.ModuleDict({
-            'P': nn.Linear(in_dim['P'], out_dim['P'] * num_heads),
-            'A': nn.Linear(in_dim['A'], out_dim['A'] * num_heads),
-            'c1c1': nn.Linear(in_dim['P'], out_dim['P'] * num_heads),
-            'c1c2': nn.Linear(in_dim['P'], out_dim['A'] * num_heads),
-            'c2c1': nn.Linear(in_dim['A'], out_dim['P'] * num_heads),
-            'c2c2': nn.Linear(in_dim['A'], out_dim['A'] * num_heads),
-            'p2s': nn.Linear(in_dim['P'], out_dim['state'] * num_heads),
-            'a2s': nn.Linear(in_dim['A'], out_dim['state'] * num_heads),
+            'C1': nn.Linear(in_dim['C1'], out_dim['C1'] * num_heads),
+            'C2': nn.Linear(in_dim['C2'], out_dim['C2'] * num_heads),
+            'C3': nn.Linear(in_dim['C3'], out_dim['C3'] * num_heads),
+            'c1c1': nn.Linear(in_dim['C1'], out_dim['C1'] * num_heads),
+            'c1c2': nn.Linear(in_dim['C1'], out_dim['C2'] * num_heads),
+            'c1c3': nn.Linear(in_dim['C1'], out_dim['C3'] * num_heads),
+            'c2c1': nn.Linear(in_dim['C2'], out_dim['C1'] * num_heads),
+            'c2c2': nn.Linear(in_dim['C2'], out_dim['C2'] * num_heads),
+            'c2c3': nn.Linear(in_dim['C2'], out_dim['C3'] * num_heads),
+            'c3c1': nn.Linear(in_dim['C3'], out_dim['C1'] * num_heads),
+            'c3c2': nn.Linear(in_dim['C3'], out_dim['C2'] * num_heads),
+            'c3c3': nn.Linear(in_dim['C3'], out_dim['C3'] * num_heads),
+            'c1s': nn.Linear(in_dim['C1'], out_dim['state'] * num_heads),
+            'c2s': nn.Linear(in_dim['C2'], out_dim['state'] * num_heads),
+            'c3s': nn.Linear(in_dim['C3'], out_dim['state'] * num_heads),
             'in': nn.Linear(in_dim['state'], out_dim['state'] * num_heads)
             })
 
@@ -457,22 +564,32 @@ class HeteroGATLayerLossyReal(nn.Module):
             self.relu = nn.ReLU()
 
         # attention coefficients
-        self.c1c1_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['P'])))
-        self.c1c1_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['P'])))
-        self.c1c2_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['A'])))
-        self.c1c2_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['A'])))
-        self.c2c1_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['P'])))
-        self.c2c1_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['P'])))
-        self.c2c2_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['A'])))
-        self.c2c2_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['A'])))
+        self.c1c1_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c1c1_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c1c2_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c1c2_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c1c3_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
+        self.c1c3_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
+        self.c2c1_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c2c1_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c2c2_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c2c2_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c2c3_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
+        self.c2c3_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
+        self.c3c1_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c3c1_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C1'])))
+        self.c3c2_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c3c2_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C2'])))
+        self.c3c3_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
+        self.c3c3_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['C3'])))
 
         # state node
-        # self.attn_fc_p2s = nn.Linear(2 * out_dim['state'], 1, bias=False)
-        # self.attn_fc_a2s = nn.Linear(2 * out_dim['state'], 1, bias=False)
-        self.p2s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
-        self.p2s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
-        self.a2s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
-        self.a2s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c1s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c1s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c2s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c2s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c3s_src = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
+        self.c3s_dst = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_dim['state'])))
 
         self.reset_parameters()
 
@@ -490,15 +607,27 @@ class HeteroGATLayerLossyReal(nn.Module):
         nn.init.xavier_normal_(self.c1c1_dst, gain=gain)
         nn.init.xavier_normal_(self.c1c2_src, gain=gain)
         nn.init.xavier_normal_(self.c1c2_dst, gain=gain)
+        nn.init.xavier_normal_(self.c1c3_src, gain=gain)
+        nn.init.xavier_normal_(self.c1c3_dst, gain=gain)
         nn.init.xavier_normal_(self.c2c1_src, gain=gain)
         nn.init.xavier_normal_(self.c2c1_dst, gain=gain)
         nn.init.xavier_normal_(self.c2c2_src, gain=gain)
         nn.init.xavier_normal_(self.c2c2_dst, gain=gain)
+        nn.init.xavier_normal_(self.c2c3_src, gain=gain)
+        nn.init.xavier_normal_(self.c2c3_dst, gain=gain)
+        nn.init.xavier_normal_(self.c3c1_src, gain=gain)
+        nn.init.xavier_normal_(self.c3c1_dst, gain=gain)
+        nn.init.xavier_normal_(self.c3c2_src, gain=gain)
+        nn.init.xavier_normal_(self.c3c2_dst, gain=gain)
+        nn.init.xavier_normal_(self.c3c3_src, gain=gain)
+        nn.init.xavier_normal_(self.c3c3_dst, gain=gain)
 
-        nn.init.xavier_normal_(self.p2s_src, gain=gain)
-        nn.init.xavier_normal_(self.p2s_dst, gain=gain)
-        nn.init.xavier_normal_(self.a2s_src, gain=gain)
-        nn.init.xavier_normal_(self.a2s_dst, gain=gain)
+        nn.init.xavier_normal_(self.c1s_src, gain=gain)
+        nn.init.xavier_normal_(self.c1s_dst, gain=gain)
+        nn.init.xavier_normal_(self.c2s_src, gain=gain)
+        nn.init.xavier_normal_(self.c2s_dst, gain=gain)
+        nn.init.xavier_normal_(self.c3s_src, gain=gain)
+        nn.init.xavier_normal_(self.c3s_dst, gain=gain)
 
     '''Get amount of loss in communication.'''
 
@@ -525,12 +654,27 @@ class HeteroGATLayerLossyReal(nn.Module):
             src, dst = self.c1c1_src, self.c1c1_dst
         elif msg_type == 'c1c2':
             src, dst = self.c1c2_src, self.c1c2_dst
+        elif msg_type == 'c1c3':
+            src, dst = self.c1c3_src, self.c1c3_dst
         elif msg_type == 'c2c1':
             src, dst = self.c2c1_src, self.c2c1_dst
         elif msg_type == 'c2c2':
             src, dst = self.c2c2_src, self.c2c2_dst
+        elif msg_type == 'c2c3':
+            src, dst = self.c2c3_src, self.c2c3_dst
+        elif msg_type == 'c3c1':
+            src, dst = self.c3c1_src, self.c3c1_dst
+        elif msg_type == 'c3c2':
+            src, dst = self.c3c2_src, self.c3c2_dst
+        elif msg_type == 'c3c3':
+            src, dst = self.c3c3_src, self.c3c3_dst
 
-        comm_range = self.comm_range_P if sender_type == 'P' else self.comm_range_A
+        if sender_type == 'C1':
+            commm_range = self.comm_range_C1
+        elif sender_type == 'C2':
+            comm_range = self.comm_range_C2
+        elif sender_type == 'C3':
+            comm_range = self.comm_range_C3
 
         def inner_lossy_u_mul_e(edges):
             dist = edges.data['dist']
@@ -584,28 +728,37 @@ class HeteroGATLayerLossyReal(nn.Module):
         '''
         From hi to Whi
         '''
-        # feature of P
-        Whc1 = self.fc['P'](feat_dict['P']).view(-1, self._num_heads, self._out_dim['P'])
-        g.nodes['P'].data['Wh_P'] = Whc1
+        # feature of C1
+        Whc1 = self.fc['C1'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['C1'])
+        g.nodes['C1'].data['Wh_C1'] = Whc1
 
-        # feature of A
-        Whc2 = self.fc['A'](feat_dict['A']).view(-1, self._num_heads, self._out_dim['A'])
-        g.nodes['A'].data['Wh_A'] = Whc2
+        # feature of C2
+        Whc2 = self.fc['A'](feat_dict['C2']).view(-1, self._num_heads, self._out_dim['C2'])
+        g.nodes['C2'].data['Wh_C2'] = Whc2
+
+        # feature of C3
+        Whc3 = self.fc['C3'](feat_dict['C3']).view(-1, self._num_heads, self._out_dim['C3'])
+        g.nodes['C3'].data['Wh_C3'] = Whc3
 
         '''
         Feature transform for each edge type (communication channel)
         '''
-        g.nodes['P'].data['h_c1c1'] = feat_dict['P']
-        g.nodes['P'].data['h_c1c2'] = feat_dict['P']
-        g.nodes['A'].data['h_c2c1'] = feat_dict['A']
-        g.nodes['A'].data['h_c2c2'] = feat_dict['A']
+        g.nodes['C1'].data['h_c1c1'] = feat_dict['C1']
+        g.nodes['C1'].data['h_c1c2'] = feat_dict['C1']
+        g.nodes['C2'].data['h_c2c1'] = feat_dict['C2']
+        g.nodes['C2'].data['h_c2c2'] = feat_dict['C2']
+        g.nodes['C3'].data['h_c3c1'] = feat_dict['C3']
+        g.nodes['C3'].data['h_c3c3'] = feat_dict['C3']
 
         # for state-related edges
-        Whc12s = self.fc['p2s'](feat_dict['P']).view(-1, self._num_heads, self._out_dim['state'])
-        g.nodes['P'].data['Wh_p2s'] = Whc12s
+        Whc1s = self.fc['c1s'](feat_dict['C1']).view(-1, self._num_heads, self._out_dim['state'])
+        g.nodes['C1'].data['Wh_c1s'] = Whc1s
 
-        Whc22s = self.fc['a2s'](feat_dict['A']).view(-1, self._num_heads, self._out_dim['state'])
-        g.nodes['A'].data['Wh_a2s'] = Whc22s
+        Whc2s = self.fc['c2s'](feat_dict['C2']).view(-1, self._num_heads, self._out_dim['state'])
+        g.nodes['C2'].data['Wh_c2s'] = Whc2s
+
+        Whc3s = self.fc['c2s'](feat_dict['C3']).view(-1, self._num_heads, self._out_dim['state'])
+        g.nodes['C3'].data['Wh_c3s'] = Whc3s
 
         Whin = self.fc['in'](feat_dict['state'].double()).view(-1, self._num_heads, self._out_dim['state'])
         g.nodes['state'].data['Wh_in'] = Whin
@@ -622,6 +775,11 @@ class HeteroGATLayerLossyReal(nn.Module):
         if g['c1c2'].number_of_edges() > 0:
             g['c1c2'].update_all(self.lossy_u_mul_e('c1c2'),
                                 fn.sum('m_c1c2', 'ft_c1c2'))
+        
+        # c1c3 message passing
+        if g['c1c3'].number_of_edges() > 0:
+            g['c1c3'].update_all(self.lossy_u_mul_e('c1c3'),
+                                fn.sum('m_c1c3', 'ft_c1c3'))
 
         # c2c1 message passing
         if g['c2c1'].number_of_edges() > 0:
@@ -632,69 +790,122 @@ class HeteroGATLayerLossyReal(nn.Module):
         if g['c2c2'].number_of_edges() > 0:
             g['c2c2'].update_all(self.lossy_u_mul_e('c2c2'),
                                 fn.sum('m_c2c2', 'ft_c2c2'))
+            
+        #c2c3 message passing
+        if g['c2c3'].number_of_edges() > 0:
+            g['c2c3'].update_all(self.lossy_u_mul_e('c2c3'),
+                                fn.sum('m_c2c3', 'ft_c2c3'))
+        
+        #c3c1 message passing
+        if g['c3c1'].number_of_edges() > 0:
+            g['c3c1'].update_all(self.lossy_u_mul_e('c3c1'),
+                                fn.sum('m_c3c1', 'ft_c3c1'))
+        
+        #c3c2 message passing
+        if g['c3c2'].number_of_edges() > 0:
+            g['c3c2'].update_all(self.lossy_u_mul_e('c3c2'),
+                                fn.sum('m_c3c2', 'ft_c3c2'))
+            
+        #c3c3 message passing
+        if g['c3c3'].number_of_edges() > 0:
+            g['c3c3'].update_all(self.lossy_u_mul_e('c3c3'),
+                                fn.sum('m_c3c3', 'ft_c3c3'))
 
-        # p2s
-        Attn_src_p2s = (Whc12s * self.p2s_src).sum(dim=-1).unsqueeze(-1)
-        Attn_dst_p2s = (Whin * self.p2s_dst).sum(dim=-1).unsqueeze(-1)
+        # c1s
+        Attn_src_c1s = (Whc1s * self.c1s_src).sum(dim=-1).unsqueeze(-1)
+        Attn_dst_c1s = (Whin * self.c1s_dst).sum(dim=-1).unsqueeze(-1)
 
-        g['p2s'].srcdata.update({'Attn_src_p2s': Attn_src_p2s})
-        g['p2s'].dstdata.update({'Attn_dst_p2s': Attn_dst_p2s})
+        g['c1s'].srcdata.update({'Attn_src_c1s': Attn_src_c1s})
+        g['c1s'].dstdata.update({'Attn_dst_c1s': Attn_dst_c1s})
 
-        g['p2s'].apply_edges(fn.u_add_v('Attn_src_p2s', 'Attn_dst_p2s', 'e_p2s'))
-        e_p2s = self.leaky_relu(g['p2s'].edata.pop('e_p2s'))
+        g['c1s'].apply_edges(fn.u_add_v('Attn_src_c1s', 'Attn_dst_c1s', 'e_c1s'))
+        e_c1s = self.leaky_relu(g['c1s'].edata.pop('e_c1s'))
 
         # compute softmax
-        g['p2s'].edata['a_p2s'] = edge_softmax(g['p2s'], e_p2s)
+        g['c1s'].edata['a_c1s'] = edge_softmax(g['c1s'], e_c1s)
 
         # message passing
-        g['p2s'].update_all(fn.u_mul_e('Wh_p2s', 'a_p2s', 'm_p2s'),
-                            fn.sum('m_p2s', 'ft_p2s'))
+        g['c1s'].update_all(fn.u_mul_e('Wh_c1s', 'a_c1s', 'm_c1s'),
+                            fn.sum('m_c1s', 'ft_c1s'))
 
-        # a2s
-        Attn_src_a2s = (Whc22s * self.a2s_src).sum(dim=-1).unsqueeze(-1)
-        Attn_dst_a2s = (Whin * self.a2s_dst).sum(dim=-1).unsqueeze(-1)
+        # c2s
+        Attn_src_c2s = (Whc2s * self.c2s_src).sum(dim=-1).unsqueeze(-1)
+        Attn_dst_c2s = (Whin * self.c2s_dst).sum(dim=-1).unsqueeze(-1)
 
-        g['a2s'].srcdata.update({'Attn_src_a2s': Attn_src_a2s})
-        g['a2s'].dstdata.update({'Attn_dst_a2s': Attn_dst_a2s})
+        g['c2s'].srcdata.update({'Attn_src_c2s': Attn_src_c2s})
+        g['c2s'].dstdata.update({'Attn_dst_c2s': Attn_dst_c2s})
 
-        g['a2s'].apply_edges(fn.u_add_v('Attn_src_a2s', 'Attn_dst_a2s', 'e_a2s'))
-        e_a2s = self.leaky_relu(g['a2s'].edata.pop('e_a2s'))
+        g['c2s'].apply_edges(fn.u_add_v('Attn_src_c2s', 'Attn_dst_c2s', 'e_c2s'))
+        e_c2s = self.leaky_relu(g['c2s'].edata.pop('e_c2s'))
 
         # compute softmax
-        g['a2s'].edata['a_a2s'] = edge_softmax(g['a2s'], e_a2s)
+        g['c2s'].edata['a_c2s'] = edge_softmax(g['c2s'], e_c2s)
 
         # message passing
-        g['a2s'].update_all(fn.u_mul_e('Wh_a2s', 'a_a2s', 'm_a2s'),
-                            fn.sum('m_a2s', 'ft_a2s'))
+        g['c2s'].update_all(fn.u_mul_e('Wh_c2s', 'a_c2s', 'm_c2s'),
+                            fn.sum('m_c2s', 'ft_c2s'))
+        
+        # c3s
+        Attn_src_c3s = (Whc3s * self.c3s_src).sum(dim=-1).unsqueeze(-1)
+        Attn_dst_c3s = (Whin * self.c3s_dst).sum(dim=-1).unsqueeze(-1)
+
+        g['c3s'].srcdata.update({'Attn_src_c3s': Attn_src_c3s})
+        g['c3s'].dstdata.update({'Attn_dst_c3s': Attn_dst_c3s})
+
+        g['c3s'].apply_edges(fn.u_add_v('Attn_src_c3s', 'Attn_dst_c3s', 'e_c3s'))
+        e_c3s = self.leaky_relu(g['c3s'].edata.pop('e_c3s'))
+
+        # compute softmax
+        g['c3s'].edata['a_c3s'] = edge_softmax(g['c3s'], e_c3s)
+
+        # message passing
+        g['c3s'].update_all(fn.u_mul_e('Wh_c3s', 'a_c3s', 'm_c3s'),
+                            fn.sum('m_c3s', 'ft_c3s'))
 
         '''
         Combine features from subgraphs
             Sum up to hi'
             Need to check if subgraph is valid
         '''
-        # new feature of P
-        Whc1_new = g.nodes['P'].data['Wh_P'].clone()
+        # new feature of C1
+        Whc1_new = g.nodes['C1'].data['Wh_C1'].clone()
 
         if g['c1c1'].number_of_edges() > 0:
-            Whc1_new += g.nodes['P'].data['ft_c1c1']
+            Whc1_new += g.nodes['C1'].data['ft_c1c1']
         if g['c2c1'].number_of_edges() > 0:
-            Whc1_new += g.nodes['P'].data['ft_c2c1']
+            Whc1_new += g.nodes['C1'].data['ft_c2c1']
+        if g['c3c1'].number_of_edges() > 0:
+            Whc1_new += g.nodes['C1'].data['ft_c3c1']
 
-        g.nodes['P'].data['h'] = Whc1_new
+        g.nodes['C1'].data['h'] = Whc1_new
 
-        # new feature of A
-        Whc2_new = g.nodes['A'].data['Wh_A'].clone()
+        # new feature of C2
+        Whc2_new = g.nodes['C2'].data['Wh_C2'].clone()
         if g['c1c2'].number_of_edges() > 0:
-            Whc2_new += g.nodes['A'].data['ft_c1c2']
+            Whc2_new += g.nodes['C2'].data['ft_c1c2']
         if g['c2c2'].number_of_edges() > 0:
-            Whc2_new += g.nodes['A'].data['ft_c2c2']
+            Whc2_new += g.nodes['C2'].data['ft_c2c2']
+        if g['c3c2'].number_of_edges() > 0:
+            Whc2_new += g.nodes['C2'].data['ft_c3c2']
 
-        g.nodes['A'].data['h'] = Whc2_new
+        g.nodes['C2'].data['h'] = Whc2_new
 
-        # new feature of state
-        Whstate_new = g.nodes['state'].data['Wh_in'] + \
-            g.nodes['state'].data['ft_p2s'] + \
-                g.nodes['state'].data['ft_a2s']
+        # new features of C3
+        Whc3_new = g.nodes['C3'].data['Wh_C3'].clone()
+        if g['c1c3'].number_of_edges() > 0:
+            Whc3_new += g.nodes['C3'].data['ft_c1c3']
+        if g['c2c3'].number_of_edges() > 0:
+            Whc3_new += g.nodes['C3'].data['ft_c2c3']
+        if g['c3c3'].number_of_edges() > 0:
+            Whc3_new += g.nodes['C3'].data['ft_c3c3']
+
+        g.nodes['C3'].data['h'] = Whc3_new
+
+        # new feature of state depending on if class 3 is valid
+        if g['c3s'].number_of_edges() > 0:
+            Whstate_new = g.nodes['state'].data['Wh_in'] + g.nodes['state'].data['ft_c1s'] +g.nodes['state'].data['ft_c2s']
+        else:   
+            Whstate_new = g.nodes['state'].data['Wh_in'] + g.nodes['state'].data['ft_c1s'] +g.nodes['state'].data['ft_c2s'] + g.nodes['state'].data['ft_c3s']
 
         g.nodes['state'].data['h'] = Whstate_new
 

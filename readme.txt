@@ -29,3 +29,4 @@ MARL/utils_log
 MARL/configs
   Configuration files for the application. It should not be mandatory. 
   It uses dataclasses.
+

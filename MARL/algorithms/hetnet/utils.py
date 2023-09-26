@@ -38,8 +38,8 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
         with_state=False, with_self_loop=False, with_two_state=False,
         comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1):
     
-    #pos = [p[:self.in_dim['C2']] for c2 in x[0][0]] is used in policy.py
-    pos_coords = [cartesian_from_one_hot(x) for x in pos]
+    #pos: dictionary of agents obs {'adversary0':array[],'adversary1':array[],...}
+    pos_coords = [cartesian_from_one_hot(pos[x]) for x in pos]
     pos_dist = {}
 
     C1nC1, C1nC2, C2nC1, C2nC2 = [], [], [], []
@@ -55,7 +55,7 @@ def build_hetgraph(pos, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=
                     key = (min(c1, x), max(c1, x))
                     comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c1] - pos_coords[x], ord=2))
                     pos_dist[key] = comm_dist
-
+                    print(f'pos_dist[key]: {pos_dist[key]}')
                     if comm_range_C1 == -1 or comm_dist <= comm_range_C1:
                         if x < num_C1:
                             C1nC1.append([c1, x])

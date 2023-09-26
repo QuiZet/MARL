@@ -30,3 +30,6 @@ MARL/configs
   Configuration files for the application. It should not be mandatory. 
   It uses dataclasses.
 
+MARL/build_hetgraph
+  Initialization of hetgraph using dgl, given observation dictionary of multiple agents
+  python MARL/algorithms/hetnet/test_utils.py

@@ -60,9 +60,10 @@ from pettingzoo.mpe import simple_tag_v3
 class A2CHetGat(object):
     def __init__(self, in_dim_raw, in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,
                  num_heads, msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,
-                 tensor_obs=False, with_two_state=False, obs=1):
+                 tensor_obs=False, with_two_state=False, obs=1, use_tanh=False):
         super().__init__()
         self.device = device
+        self.use_tanh = use_tanh
         
         self.num_C1 = num_agents_class1
         self.num_C2 = num_agents_class2
@@ -166,8 +167,12 @@ class A2CHetGat(object):
             else: 
                 return C1, C2, C3
         
+    #originaly get_obs_features_uneven_obs in uavnet.py
     def get_obs_features(self, x):
-        C1 = torch.zeros(1, self.in_dim['state'])
+        C1 = torch.zeros(1, self.num_C1, self.in_dim['state'] * self.obs_squares)
+        #TODO: next two lines not sure if * self.obs_squares is correct
+        C2 = torch.zeros(1, self.num_C2, self.in_dim['state'] * self.obs_squares)
+        C3 = torch.zeros(1, self.num_C3, self.in_dim['state'] * self.obs_squares)
         for i in range(self.num_C1):
             pass
 
@@ -292,8 +297,42 @@ class A2CHetGat(object):
         h2 = self.layer2(g, h1)
         
         if self.per_agent_critic:
+            if self.with_two_state:
+                C1_critic_value = self.C1_critic_head(self.relu(h2['state'][:1, :]))
+                C2_critic_value = self.C2_critic_head(self.relu(h2['state'][1:2, :]))
+                if self.use_tanh:
+                    C1_critic_value = self.tanh(C1_critic_value)
+                    C2_critic_value = self.tanh(C2_critic_value)    
+                if self.num_C3 != 0:
+                    C3_critic_value = self.C3_critic_head(self.relu(h2['state'][2:3, :]))
+                    if self.use_tanh:
+                        C3_critic_value = self.tanh(C3_critic_value)
+            else:
+                C1_critic_value = self.C1_critic_head(self.relu(h2['state']))
+                C2_critic_value = self.C2_critic_head(self.relu(h2['state']))
+                if self.use_tanh:
+                    C1_critic_value = self.tanh(C1_critic_value)
+                    C2_critic_value = self.tanh(C2_critic_value)
+                if self.num_C3 != 0:
+                    C3_critic_value = self.C3_critic_head(self.relu(h2['state']))
+                    if self.use_tanh:
+                        C3_critic_value = self.tanh(C3_critic_value)
             #return h2, C1_critic_value, C2_critic_value, C3_critic_value, h
-            pass
+            h = {}
+            h['C1_s'] = (hidden_state_c1_stat, cell_state_c1_stat)
+            h['C1_o'] = (hidden_state_c1_obs, cell_state_c1_obs)
+            h['C2_s'] = (hidden_state_c2_stat, cell_state_c2_stat)
+            h['C2_o'] = (hidden_state_c2_obs, cell_state_c2_obs)
+            if self.num_C3 != 0:
+                h['C3_s'] = (hidden_state_c3_stat, cell_state_c3_stat)
+                h['C3_o'] = (hidden_state_c3_obs, cell_state_c3_obs)
+            
+            if self.num_C3 != 0:
+                return h2, C1_critic_value, C2_critic_value, C3_critic_value, h
+            else:
+                return h2, C1_critic_value, C2_critic_value, h
+        
+        #TODO: implement per_class_critic    
         elif self.per_class_critic:
             #return h2, C1_critic_value, C2_critic_value, C3_critic_value, h
             pass

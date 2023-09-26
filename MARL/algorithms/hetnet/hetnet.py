@@ -244,25 +244,49 @@ class A2CHetGat(object):
         
         state_c1_stat = x_c1_stat.clone().detach()
         state_c2_stat = x_c2_stat.clone().detach()
-        state_c3_stat = x_c3_stat.clone().detach()
         
         state_c1_stat = self.relu(self.prepro_stat(state_c1_stat))
         state_c2_stat = self.relu(self.prepro_stat(state_c2_stat))
-        state_c3_stat = self.relu(self.prepro_stat(state_c3_stat))
         
         x_c1_obs = x_c1_obs.to(self.device)
         x_c2_obs = x_c2_obs.to(self.device)
-        x_c3_obs = x_c3_obs.to(self.device)
                 
         x_c1_obs = self.relu(self.prepro_obs_C1(state_c1_stat))
         x_c2_obs = self.relu(self.prepro_obs_C2(state_c2_stat))
-        x_c3_obs = self.relu(self.prepro_obs_C3(state_c3_stat))
         
         #self.f_module_obs probably needs modification, individual LSTM for each agent. As f_module_obs(LSTM) input dim is in_dim_raw['state'] * self.obs_squares
         hidden_state_c1_obs, cell_state_c1_obs = self.f_module_obs(x_c1_obs.squeeze(), (hidden_state_c1_obs.double(), cell_state_c1_obs.double()))
         hidden_state_c2_obs, cell_state_c2_obs = self.f_module_obs(x_c2_obs.squeeze(), (hidden_state_c2_obs.double(), cell_state_c2_obs.double()))
-        hiddel_state_c3_obs, cell_state_c3_obs = self.f_module_obs(x_c3_obs.squeeze(), (hidden_state_c3_obs.double(), cell_state_c3_obs.double()))
         
         hidden_state_c1_stat, cell_state_c1_stat = self.f_module_stat_C1(state_c1_stat.squeeze(), (hidden_state_c1_stat.double(), cell_state_c1_stat.double()))
         hidden_state_c2_stat, cell_state_c2_stat = self.f_module_stat_C2(state_c2_stat.squeeze(), (hidden_state_c2_stat.double(), cell_state_c2_stat.double()))
-        hidden_state_c3_stat, cell_state_c3_stat = self.f_module_stat_C3(state_c3_stat.squeeze(), (hidden_state_c3_stat.double(), cell_state_c3_stat.double()))
+         
+        feat_dict['C1'] = torch.cat([hidden_state_c1_stat, hidden_state_c1_obs], dim=1)
+        feat_dict['C2'] = torch.cat([hidden_state_c2_stat, hidden_state_c2_obs], dim=1)
+        
+        if self.num_C3 != 0:
+            state_c3_stat = x_c3_stat.clone().detach()
+            state_c3_stat = self.relu(self.prepro_stat(state_c3_stat))
+            x_c3_obs = x_c3_obs.to(self.device)
+            x_c3_obs = self.relu(self.prepro_obs_C3(state_c3_stat))
+            hiddel_state_c3_obs, cell_state_c3_obs = self.f_module_obs(x_c3_obs.squeeze(), (hidden_state_c3_obs.double(), cell_state_c3_obs.double()))
+            hidden_state_c3_stat, cell_state_c3_stat = self.f_module_stat_C3(state_c3_stat.squeeze(), (hidden_state_c3_stat.double(), cell_state_c3_stat.double()))
+            feat_dict['C3'] = torch.cat([hidden_state_c3_stat, hidden_state_c3_obs], dim=1)
+            
+        if self.with_two_state:
+            if self.num_C3 == 0:
+                feat_dict['state'] = torch.tensor([
+                    [self.num_C1, self.num_C2, self.world_dim, self.total_state_action_in_batch],
+                    [self.num_C1, self.num_C2, self.world_dim, self.total_state_action_in_batch]
+                ]).to(self.device)
+            else:
+                feat_dict['state'] = torch.tensor([
+                    [self.num_C1, self.num_C2, self.num_C3, self.world_dim, self.total_state_action_in_batch],
+                    [self.num_C1, self.num_C2, self.num_C3, self.world_dim, self.total_state_action_in_batch],
+                    [self.num_C1, self.num_C2, self.num_C3, self.world_dim, self.total_state_action_in_batch]
+            ]).to(self.device)
+                
+        #self.layer1 = MultiHeteroGATLayerReal(in_dim, hid_dim, num_heads)
+        #self.layer2 = MultiHeteroGATLayerReal(hid_dim, hid_dim, num_heads, merge='avg')
+        h1 = self.layer1(g, feat_dict)
+        h2 = self.layer2(g, h1)

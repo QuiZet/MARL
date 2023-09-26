@@ -290,3 +290,10 @@ class A2CHetGat(object):
         #self.layer2 = MultiHeteroGATLayerReal(hid_dim, hid_dim, num_heads, merge='avg')
         h1 = self.layer1(g, feat_dict)
         h2 = self.layer2(g, h1)
+        
+        if self.per_agent_critic:
+            #return h2, C1_critic_value, C2_critic_value, C3_critic_value, h
+            pass
+        elif self.per_class_critic:
+            #return h2, C1_critic_value, C2_critic_value, C3_critic_value, h
+            pass

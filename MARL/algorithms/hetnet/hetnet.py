@@ -50,6 +50,12 @@ from pettingzoo.mpe import simple_tag_v3
               'C2': grid_size,
               'C3': grid_size,
               'state': state_len}
+              
+    What is actually passed to the network is the following(original code):
+    in_dim_raw: {'vision': 2, 'P': 29, 'A': 25, 'state': 4} 
+    in_dim: {'P': 29, 'A': 25, 'state': 4, 'obs_squares': 25} 
+    hid_dim: {'P': 16, 'A': 16, 'state': 16} 
+    out_dim: {'P': 5, 'A': 6, 'state': 8}
 """
 class A2CHetGat(object):
     def __init__(self, in_dim_raw, in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,

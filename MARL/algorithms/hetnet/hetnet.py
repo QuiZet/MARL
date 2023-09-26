@@ -257,3 +257,12 @@ class A2CHetGat(object):
         x_c1_obs = self.relu(self.prepro_obs_C1(state_c1_stat))
         x_c2_obs = self.relu(self.prepro_obs_C2(state_c2_stat))
         x_c3_obs = self.relu(self.prepro_obs_C3(state_c3_stat))
+        
+        #self.f_module_obs probably needs modification, individual LSTM for each agent. As f_module_obs(LSTM) input dim is in_dim_raw['state'] * self.obs_squares
+        hidden_state_c1_obs, cell_state_c1_obs = self.f_module_obs(x_c1_obs.squeeze(), (hidden_state_c1_obs.double(), cell_state_c1_obs.double()))
+        hidden_state_c2_obs, cell_state_c2_obs = self.f_module_obs(x_c2_obs.squeeze(), (hidden_state_c2_obs.double(), cell_state_c2_obs.double()))
+        hiddel_state_c3_obs, cell_state_c3_obs = self.f_module_obs(x_c3_obs.squeeze(), (hidden_state_c3_obs.double(), cell_state_c3_obs.double()))
+        
+        hidden_state_c1_stat, cell_state_c1_stat = self.f_module_stat_C1(state_c1_stat.squeeze(), (hidden_state_c1_stat.double(), cell_state_c1_stat.double()))
+        hidden_state_c2_stat, cell_state_c2_stat = self.f_module_stat_C2(state_c2_stat.squeeze(), (hidden_state_c2_stat.double(), cell_state_c2_stat.double()))
+        hidden_state_c3_stat, cell_state_c3_stat = self.f_module_stat_C3(state_c3_stat.squeeze(), (hidden_state_c3_stat.double(), cell_state_c3_stat.double()))

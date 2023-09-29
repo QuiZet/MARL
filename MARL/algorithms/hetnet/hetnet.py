@@ -41,12 +41,15 @@ from pettingzoo.mpe import simple_tag_v3
 
 #My implementation input dimensions:
 """
-    state_in_dim = in_dim_raw {'C1': obs_size,
-                    'C2': obs_size,
-                    'C3': obs_size,
-                    'state': state_len
+    state_in_dim = {'C1': state_size,
+                   'C2': state_size,
+                   'C3': state_size,
+                   'state': state_len  -> meta data of the state of the env, num_agens, grid_size, etc
                     }  
-    obs_in_dim
+    obs_in_dim = {'C1': obs_size,
+                  'C2': obs_size,
+                  'C3': obs_size
+                  }
 
     What is actually passed to the network is the following(original code):
     in_dim_raw: {'vision': 2, 'P': 29, 'A': 25, 'state': 4} 
@@ -67,6 +70,7 @@ class A2CHetGat(object):
         
         self.tensor_obs = tensor_obs
         #self.vision = in_dim_raw['vision'] #in IC3Net, predetors have vision of 2
+        ##TODO modify flexibility to suit any environment passed
         self.world_dim = Box(-np.inf, np.inf, (62,), np.float32)
         
         self.state_in_dim = state_in_dim
@@ -83,7 +87,7 @@ class A2CHetGat(object):
             self.prepro_obs_C3 = nn.Linear(self.C3_s * self.obs_squares, self.C3_s * self.obs_squares)
             self.f_module_stat_C3 = nn.LSTMCell(self.C3_s * self.obs_squares, self.C3_s)
         
-        #TODO modify flexibility to suit any environment passed
+        ##TODO modify flexibility to suit any environment passed
         self.world_dim = 62 #World grid size of Pettingzoo Simple Tag
         self.hid_size = 32
         self.obs_squares = 1 if obs is None else obs #from original code, in original main.py obs = None (line 247 in main.py)
@@ -94,7 +98,7 @@ class A2CHetGat(object):
         
         #gnn layers
         #N layers = N round of communication during one time step
-        self.layer1 = MultiHeteroGATLayerReal(in_dim, hid_dim, num_heads)
+        self.layer1 = MultiHeteroGATLayerReal(obs_in_dim + state_in_dim, hid_dim, num_heads)
         self.layer2 = MultiHeteroGATLayerReal(hid_dim, hid_dim, num_heads, merge='avg')
         
         self.relu = nn.ReLU()
@@ -103,13 +107,14 @@ class A2CHetGat(object):
         self.per_agent_critic = per_agent_critic
         self.with_two_state = with_two_state
         
-        self.prepro_stat = nn.Linear(in_dim['state'] * self.obs_squares, hid_dim['state'] * self.obs_squares) #reason for *self.obs_squares? : from original code
-        self.prepro_obs_C1 = nn.Linear(self.C1_s * self.obs_squares, self.C1_s * self.obs_squares)
-        self.prepro_obs_C2 = nn.Linear(self.C2_s * self.obs_squares, self.C2_s * self.obs_squares)
+        self.prepro_stat = nn.Linear(state_in_dim['state'] * self.obs_squares, hid_dim['state'] * self.obs_squares) #reason for *self.obs_squares? : from original code
+        self.prepro_obs_C1 = nn.Linear(self.C1_o * self.obs_squares, self.C1_o * self.obs_squares)
+        self.prepro_obs_C2 = nn.Linear(self.C2_o * self.obs_squares, self.C2_o * self.obs_squares)
         
-        self.f_module_obs = nn.LSTMCell(in_dim['state'] * self.obs_squares, in_dim['state'])
+        self.f_module_obs = nn.LSTMCell(state_in_dim['state'] * self.obs_squares, state_in_dim['state'])
         self.f_module_stat_C1 = nn.LSTMCell(self.C1_s * self.obs_squares, self.C1_s)
         self.f_module_stat_C2 = nn.LSTMCell(self.C2_s * self.obs_squares, self.C2_s)
+
         
         if self.per_class_critic:
             self.C1_critic_head = nn.Linear(out_dim['state'], 1)
@@ -214,17 +219,17 @@ class A2CHetGat(object):
         h = {}
         h['C1_s'] = tuple((torch.zeros(self.num_C1, self.C1_s, requires_grad=True).to(self.device),
                            torch.zeros(self.num_C1, self.C1_s, requires_grad=True).to(self.device)))
-        h['C1_o'] = tuple((torch.zeros(self.num_C1, self.in_dim['state'], requires_grad=True).to(self.device),
-                           torch.zeros(self.num_C1, self.in_dim['state'], requires_grad=True).to(self.device)))
+        h['C1_o'] = tuple((torch.zeros(self.num_C1, self.C1_o, requires_grad=True).to(self.device),
+                           torch.zeros(self.num_C1, self.C1_o, requires_grad=True).to(self.device)))
         h['C2_s'] = tuple((torch.zeros(self.num_C2, self.C2_s, requires_grad=True).to(self.device),
                            torch.zeros(self.num_C2, self.C2_s, requires_grad=True).to(self.device)))
-        h['C2_o'] = tuple((torch.zeros(self.num_C2, self.in_dim['state'], requires_grad=True).to(self.device),
-                           torch.zeros(self.num_C2, self.in_dim['state'], requires_grad=True).to(self.device)))
+        h['C2_o'] = tuple((torch.zeros(self.num_C2, self.C2_o, requires_grad=True).to(self.device),
+                           torch.zeros(self.num_C2, self.C2_o, requires_grad=True).to(self.device)))
         if self.num_C3 != 0:
             h['C3_s'] = tuple((torch.zeros(self.num_C3, self.C3_s, requires_grad=True).to(self.device),
                             torch.zeros(self.num_C3, self.C3_s, requires_grad=True).to(self.device)))
-            h['C3_o'] = tuple((torch.zeros(self.num_C3, self.in_dim['state'], requires_grad=True).to(self.device),
-                            torch.zeros(self.num_C3, self.in_dim['state'], requires_grad=True).to(self.device)))
+            h['C3_o'] = tuple((torch.zeros(self.num_C3, self.C3_o, requires_grad=True).to(self.device),
+                            torch.zeros(self.num_C3, self.C3_o, requires_grad=True).to(self.device)))
         return h
     
     def forward(self, x, g):

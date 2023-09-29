@@ -41,11 +41,12 @@ from pettingzoo.mpe import simple_tag_v3
 
 #My implementation input dimensions:
 """
-    in_dim = in_dim_raw {  'C1': grid_size,
-                    'C2': grid_size,
-                    'C3': grid_size,
+    state_in_dim = in_dim_raw {'C1': obs_size,
+                    'C2': obs_size,
+                    'C3': obs_size,
                     'state': state_len
                     }  
+    obs_in_dim
 
     What is actually passed to the network is the following(original code):
     in_dim_raw: {'vision': 2, 'P': 29, 'A': 25, 'state': 4} 
@@ -54,7 +55,7 @@ from pettingzoo.mpe import simple_tag_v3
     out_dim: {'P': 5, 'A': 6, 'state': 8}
 """
 class A2CHetGat(object):
-    def __init__(self, in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,
+    def __init__(self, state_in_dim, obs_in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,
                  num_heads, msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,
                  tensor_obs=False, with_two_state=False, obs=1, use_tanh=False):
         super().__init__()
@@ -68,17 +69,17 @@ class A2CHetGat(object):
         #self.vision = in_dim_raw['vision'] #in IC3Net, predetors have vision of 2
         self.world_dim = Box(-np.inf, np.inf, (62,), np.float32)
         
-        self.in_dim = in_dim
-        self.C1_s = [in_dim['C1'][0], in_dim['C1'][1]]
-        self.C2_s = [in_dim['C2'][0], in_dim['C2'][1]]
+        self.state_in_dim = state_in_dim
+        self.C1_s = state_in_dim['C1']
+        self.C2_s = state_in_dim['C2']
         
-        self.C1_o = [in_dim['C1'][2], in_dim['C1'][3], in_dim['C1'][4]]
-        self.C2_o = [in_dim['C2'][2], in_dim['C2'][3], in_dim['C2'][4]]
+        self.C1_o = obs_in_dim['C1']
+        self.C2_o = obs_in_dim['C2']
         
         if self.num_C3 != 0:
             self.num_C3 = num_agents_class3
-            self.C3_s = [in_dim['C3'][0], in_dim['C3'][1]]
-            self.C3_o = [in_dim['C3'][2], in_dim['C3'][3], in_dim['C3'][4]]
+            self.C3_s = state_in_dim['C3']
+            self.C3_o = obs_in_dim['C3']
             self.prepro_obs_C3 = nn.Linear(self.C3_s * self.obs_squares, self.C3_s * self.obs_squares)
             self.f_module_stat_C3 = nn.LSTMCell(self.C3_s * self.obs_squares, self.C3_s)
         
@@ -106,7 +107,7 @@ class A2CHetGat(object):
         self.prepro_obs_C1 = nn.Linear(self.C1_s * self.obs_squares, self.C1_s * self.obs_squares)
         self.prepro_obs_C2 = nn.Linear(self.C2_s * self.obs_squares, self.C2_s * self.obs_squares)
         
-        self.f_module_obs = nn.LSTMCell(in_dim_raw['state'] * self.obs_squares, in_dim_raw['state'])
+        self.f_module_obs = nn.LSTMCell(in_dim['state'] * self.obs_squares, in_dim['state'])
         self.f_module_stat_C1 = nn.LSTMCell(self.C1_s * self.obs_squares, self.C1_s)
         self.f_module_stat_C2 = nn.LSTMCell(self.C2_s * self.obs_squares, self.C2_s)
         
@@ -121,55 +122,58 @@ class A2CHetGat(object):
         else:
             self.critic_head = nn.Linear(out_dim['state'], 1)
             
-    def remove_excess_action_features_from_all(self, x):
-        C1 = torch.zeros(1, self.C1_s)
-        C2 = torch.zeros(1, self.C2_s)
-        C3 = torch.zeros(1, self.C3_s)
-        
-        for i in range(self.num_C1 + self.num_C2 + self.num_C3):
-            x_pos, f_pos, t_pos = 0, 0
-            if i < self.num_C1:
-                dx, df, dt = self.in_dim['C1'], self.in_dim['C1'], self.in_dim['C1']
-            elif i < self.num_C1 + self.num_C2:
-                dx, df, dt = self.in_dim['C1'], self.in_dim['C2'], self.in_dim['C2']
-            else:
-                dx, df, dt = self.in_dim['C1'], self.in_dim['C2'], self.in_dim['C3']
-                
-            f_i = torch.zeros(1, df)
-            t_i = torch.zeros(1, dt)
             
-            for _ in range(self.obs_squares):
-                """
-                x:tensor([[[0., 0., 0.,  ..., 1., 0., 0.],
-                [0., 1., 0.,  ..., 1., 0., 0.],
-                [0., 0., 0.,  ..., 0., 0., 1.]]])
-                x:torch.Size([1, 3, 725])
-                """
-                f_i[0, f_pos:f_pos + df] = x[0][i][x_pos:x_pos + df]
-                t_i[0, f_pos:f_pos + dt] = x[0][i][x_pos:x_pos + dt]
-                x_pos += dx
-                f_pos += df
-                t_pos += dt
-                
-            if i < self.num_C1:
-                if i == 0:
-                    C1 = f_i
-                else:
-                    C1 = torch.cat((C1, f_i), dim=0)
-            elif i < self.num_C2:
-                if i == self.num_C1:
-                    C2 = f_i
-                else:
-                    C2 = torch.cat((C2, f_i), dim=0)
-            else:
-                if i == self.num_C1 + self.num_C2:
-                    C3 = f_i
-                else:
-                    C3 = torch.cat((C3, f_i), dim=0)
-            if self.num_C3==0:
-                return C1,C2
-            else: 
-                return C1, C2, C3
+    #Became irrelevant as simple_tag has predefined action space
+    #def remove_excess_action_features_from_all(self, x):
+    #    C1 = torch.zeros(1, self.C1_s)
+    #    C2 = torch.zeros(1, self.C2_s)
+    #    if self.num_C3 != 0:
+    #        C3 = torch.zeros(1, self.C3_s)
+    #    
+    #    for i in range(self.num_C1 + self.num_C2 + self.num_C3):
+    #        x_pos, f_pos, t_pos = 0, 0
+    #        if i < self.num_C1:
+    #            dx, df, dt = self.in_dim['C1'], self.in_dim['C1'], self.in_dim['C1']
+    #        elif i < self.num_C1 + self.num_C2:
+    #            dx, df, dt = self.in_dim['C1'], self.in_dim['C2'], self.in_dim['C2']
+    #        else:
+    #            dx, df, dt = self.in_dim['C1'], self.in_dim['C2'], self.in_dim['C3']
+    #            
+    #        f_i = torch.zeros(1, df)
+    #        t_i = torch.zeros(1, dt)
+    #        
+    #        for _ in range(self.obs_squares):
+    #            """
+    #            x:tensor([[[0., 0., 0.,  ..., 1., 0., 0.],
+    #            [0., 1., 0.,  ..., 1., 0., 0.],
+    #            [0., 0., 0.,  ..., 0., 0., 1.]]])
+    #            x:torch.Size([1, 3, 725])
+    #            """
+    #            f_i[0, f_pos:f_pos + df] = x[0][i][x_pos:x_pos + df]
+    #            t_i[0, f_pos:f_pos + dt] = x[0][i][x_pos:x_pos + dt]
+    #            x_pos += dx
+    #            f_pos += df
+    #            t_pos += dt
+    #            
+    #        if i < self.num_C1:
+    #            if i == 0:
+    #                C1 = f_i
+    #            else:
+    #                C1 = torch.cat((C1, f_i), dim=0)
+    #        elif i < self.num_C2:
+    #            if i == self.num_C1:
+    #                C2 = f_i
+    #            else:
+    #                C2 = torch.cat((C2, f_i), dim=0)
+    #        else:
+    #            if i == self.num_C1 + self.num_C2:
+    #                C3 = f_i
+    #            else:
+    #                C3 = torch.cat((C3, f_i), dim=0)
+    #        if self.num_C3==0:
+    #            return C1,C2
+    #        else: 
+    #            return C1, C2, C3
         
     #Became irrelevant as simple_tag has predefined observation space
     #originaly get_obs_features_uneven_obs in uavnet.py

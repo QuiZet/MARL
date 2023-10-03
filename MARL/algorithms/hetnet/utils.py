@@ -34,7 +34,7 @@ def cartesian_from_one_hot(one_hot):
 
     return np.array([x, y])
 
-def build_hetgraph(agent_names, obs_agents, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=None,
+def build_hetgraph(agent_names, obs, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=None,
         with_state=False, with_self_loop=False, with_two_state=False,
         comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1):
     
@@ -59,7 +59,7 @@ def build_hetgraph(agent_names, obs_agents, num_C1, num_C2, num_C3=0, C1nC1=None
                     key = (min(c1, x), max(c1, x))
                     #comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c1] - pos_coords[x], ord=2))
                     #Agent and adversary observations: [self_vel, self_pos, landmark_rel_positions, other_agent_rel_positions, other_agent_velocities]
-                    comm_dist = obs_agents
+                    comm_dist = obs[agent_names[c1]][8+2*x:10+2*x]
                     pos_dist[key] = comm_dist
                     print(f'pos_dist[key]: {pos_dist[key]}')
                     if comm_range_C1 == -1 or comm_dist <= comm_range_C1:

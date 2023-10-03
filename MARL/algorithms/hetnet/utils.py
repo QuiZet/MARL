@@ -34,6 +34,7 @@ def cartesian_from_one_hot(one_hot):
 
     return np.array([x, y])
 
+
 def build_hetgraph(agent_names, obs, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2=None, C2nC2=None,
         with_state=False, with_self_loop=False, with_two_state=False,
         comm_range_C1=-1, comm_range_C2=-1, comm_range_C3=-1):
@@ -52,6 +53,18 @@ def build_hetgraph(agent_names, obs, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2
     C1_i = range(num_C1) #class_1 agent index starts from 0, ends at (num_C1)-1
     C2_i = range(num_C1, num_C1 + num_C2)
     
+    def get_rel_pos(name, x):
+        if "adversary" in name:
+            if x < num_C1:  # target is also an adversary
+                return obs[name][6+2*x:8+2*x] if x != int(name.split("_")[-1]) else obs[name][1:3]
+            else:  # target is an agent
+               return obs[name][6+2*(x+num_C1):8+2*(x+num_C1)]
+        else:
+            if x < num_C1:  # target is an adversary
+                return obs[name][6+2*x:8+2*x]
+            else:  # target is also an agent
+                return obs[name][6+2*(x+num_C1):8+2*(x+num_C1)] if x != int(name.split("_")[-1]) else obs[name][1:3]
+
     if num_C3 == 0:
         for c1 in C1_i:
             for x in range(num_C1 + num_C2):
@@ -59,7 +72,9 @@ def build_hetgraph(agent_names, obs, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2
                     key = (min(c1, x), max(c1, x))
                     #comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c1] - pos_coords[x], ord=2))
                     #Agent and adversary observations: [self_vel, self_pos, landmark_rel_positions, other_agent_rel_positions, other_agent_velocities]
-                    comm_dist = obs[agent_names[c1]][8+2*x:10+2*x]
+                    if c1 == 1 and x == 0:
+                        comm_dist = np.linalg.norm(obs[agent_names[c1]][8+2*x:10+2*x])
+                    comm_dist = obs[agent_names[c1]][6+2*x:8+2*x]
                     pos_dist[key] = comm_dist
                     print(f'pos_dist[key]: {pos_dist[key]}')
                     if comm_range_C1 == -1 or comm_dist <= comm_range_C1:
@@ -74,7 +89,8 @@ def build_hetgraph(agent_names, obs, num_C1, num_C2, num_C3=0, C1nC1=None, C1nC2
             for x in range(num_C1 + num_C2):
                 if c2 != x:
                     key = (min(c2, x), max(c2, x))
-                    comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c2] - pos_coords[x], ord=2))
+                    comm_dist = obs[agent_names[num_C1+c2]][]
+                    #comm_dist = pos_dist.get(key, np.linalg.norm(pos_coords[c2] - pos_coords[x], ord=2))
                     pos_dist[key] = comm_dist
 
                     if comm_range_C2 == -1 or comm_dist <= comm_range_C2:

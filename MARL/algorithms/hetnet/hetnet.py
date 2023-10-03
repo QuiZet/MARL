@@ -57,6 +57,7 @@ from pettingzoo.mpe import simple_tag_v3
     hid_dim: {'P': 16, 'A': 16, 'state': 16} 
     out_dim: {'P': 5, 'A': 6, 'state': 8}
 """
+
 class A2CHetGat(object):
     def __init__(self, state_in_dim, obs_in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,
                  num_heads, msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,

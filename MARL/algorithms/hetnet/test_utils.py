@@ -49,21 +49,16 @@ def fake_raw_input(num_P, num_A, in_dim_raw):
 #Sanity Check
 if __name__ == '__main__':
     env = simple_tag_v3.parallel_env()
+    agent_names = env.possible_agents
     obs_dict, _ = env.reset()
-    in_dim = {'C1':25,'C2':25,'state':4}
     num_C1 = 1
     num_C2 = 1
     num_C3 = 0
-    C1nC1 = []
-    #PnP = [[0,1]]
-    C1nC2 = [[0,2],[1,3],[1,4]] # first is C1, second is C2
-    C2nC2 = [[3,4],[4,3]]
-    pos = []
-   # pos = [p[:self.in_dim['A']] for p in x[0][0]]
 
-    hetg = build_hetgraph(obs_dict, num_C1, num_C2, num_C3, C1nC1, C1nC2, C2nC2, with_state = True)
+    hetg = build_hetgraph(agent_names, obs_dict, num_C1, num_C2, num_C3, with_state = True)
     print(hetg)
     print(hetg['c1c1'].number_of_edges())
+    print(hetg['c1c2'].number_of_edges())
 
     f_d = fake_node_helper(num_C1, num_C2, h_dim_C1 = 6, h_dim_C2 = 3)
     print(f_d)

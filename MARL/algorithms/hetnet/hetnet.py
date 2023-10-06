@@ -59,13 +59,13 @@ from pettingzoo.mpe import simple_tag_v3
 """
 
 class A2CHetGat(object):
-    def __init__(self, state_in_dim, obs_in_dim, hid_dim, out_dim, num_C1, num_C2, num_heads, num_C3=0,
+    def __init__(self, agent_names, state_in_dim, obs_in_dim, hid_dim, out_dim, num_C1, num_C2, num_heads, num_C3=0,
                  msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,
                  tensor_obs=False, with_two_state=False, obs=1, use_tanh=False):
         super().__init__()
         self.device = device
         self.use_tanh = use_tanh
-        
+        self.agent_names = agent_names
         self.num_C1 = num_C1
         self.num_C2 = num_C2
         
@@ -129,22 +129,30 @@ class A2CHetGat(object):
             self.critic_head = nn.Linear(out_dim['state'], 1)
             
     
+    # given that x is the observation output of the pettingzoo environment
     def get_class_state_info(self, x):
-        C1 = torch.zeros(1, self.C1_s)
-        C2 = torch.zeros(1, self.C2_s)
-        C3 = torch.zeros(1, self.C3_s)
+        C1 = torch.emtpy(0)
+        C2 = torch.empty(0)
+        C3 = torch.empty(0)
         
         for i in range(self.num_C1+self.num_C2+self.num_C3):
             vel, pos = [0,0], [0,0]
             if i < self.num_C1:
-                vel, pos = x[1][i][0:2], x[1][i][2:4]
-                C1 = torch.cat((C1, pos), dim=0)
+                c_i_state = x[f'{self.agent_names[i]}'][0:4] #self_vel, self_pos
+                c_i_state = torch.tensor(c_i_state)
+                #C1 = torch.cat((C1, c_i_state), dim=0)
+                C1 = torch.stack((C1, c_i_state), dim=0)
             elif i < self.num_C1 + self.num_C2:
-                vel, pos = x[1][i][0:2], x[1][i][2:4]
-                C2 = torch.cat((C2, pos), dim=0)
+                c_i_state = x[f'{self.agent_names[i]}'][0:4]
+                C2 = torch.stack((C2, c_i_state), dim=0)
             else:
-                vel, pos = x[1][i][0:2], x[1][i][2:4]
-                C3 = torch.cat((C3, pos), dim=0)        
+                c_i_state = x[f'{self.agent_names[i]}'][0:4]
+                C3 = torch.stack((C3, c_i_state), dim=0) 
+            
+        if C3.numel() == 0:
+            return C1,C2
+        else:
+            return C1,C2,C3
         
     def get_obs_info(self, x):
         C1 = torch.zeros(1, self.C1_o)

@@ -59,15 +59,15 @@ from pettingzoo.mpe import simple_tag_v3
 """
 
 class A2CHetGat(object):
-    def __init__(self, state_in_dim, obs_in_dim, hid_dim, out_dim, num_agents_class1, num_agents_class2, num_agents_class3,
-                 num_heads, msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,
+    def __init__(self, state_in_dim, obs_in_dim, hid_dim, out_dim, num_C1, num_C2, num_heads, num_C3=0,
+                 msg_dim=16, use_CNN=True, device='gpu', per_class_critic=False, per_agent_critic=False,
                  tensor_obs=False, with_two_state=False, obs=1, use_tanh=False):
         super().__init__()
         self.device = device
         self.use_tanh = use_tanh
         
-        self.num_C1 = num_agents_class1
-        self.num_C2 = num_agents_class2
+        self.num_C1 = num_C1
+        self.num_C2 = num_C2
         
         self.tensor_obs = tensor_obs
         #self.vision = in_dim_raw['vision'] #in IC3Net, predetors have vision of 2
@@ -82,16 +82,16 @@ class A2CHetGat(object):
         self.C2_o = obs_in_dim['C2']
         
         if self.num_C3 != 0:
-            self.num_C3 = num_agents_class3
+            self.num_C3 = num_C3
             self.C3_s = state_in_dim['C3']
             self.C3_o = obs_in_dim['C3']
-            self.prepro_obs_C3 = nn.Linear(self.C3_s * self.obs_squares, self.C3_s * self.obs_squares)
-            self.f_module_stat_C3 = nn.LSTMCell(self.C3_s * self.obs_squares, self.C3_s)
+            self.prepro_obs_C3 = nn.Linear(self.C3_s, self.C3_s) #* self.obs_squares, self.C3_s * self.obs_squares)
+            self.f_module_stat_C3 = nn.LSTMCell(self.C3_s, self.C3_s) # * self.obs_squares, self.C3_s)
         
         ##TODO modify flexibility to suit any environment passed
         self.world_dim = 62 #World grid size of Pettingzoo Simple Tag
         self.hid_size = 32
-        self.obs_squares = 1 if obs is None else obs #from original code, in original main.py obs = None (line 247 in main.py)
+        #self.obs_squares = 1 if obs is None else obs #from original code, in original main.py obs = None (line 247 in main.py)
         
         hid_dim_input = {}
         for key in hid_dim:
@@ -108,13 +108,13 @@ class A2CHetGat(object):
         self.per_agent_critic = per_agent_critic
         self.with_two_state = with_two_state
         
-        self.prepro_stat = nn.Linear(state_in_dim['state'] * self.obs_squares, hid_dim['state'] * self.obs_squares) #reason for *self.obs_squares? : from original code
-        self.prepro_obs_C1 = nn.Linear(self.C1_o * self.obs_squares, self.C1_o * self.obs_squares)
-        self.prepro_obs_C2 = nn.Linear(self.C2_o * self.obs_squares, self.C2_o * self.obs_squares)
+        self.prepro_stat = nn.Linear(state_in_dim['state'], hid_dim['state']) #* self.obs_squares, hid_dim['state'] * self.obs_squares) #reason for *self.obs_squares? : from original code
+        self.prepro_obs_C1 = nn.Linear(self.C1_o, self.C1_o) #* self.obs_squares, self.C1_o * self.obs_squares)
+        self.prepro_obs_C2 = nn.Linear(self.C2_o, self.C2_o) #* self.obs_squares, self.C2_o * self.obs_squares)
         
-        self.f_module_obs = nn.LSTMCell(state_in_dim['state'] * self.obs_squares, state_in_dim['state'])
-        self.f_module_stat_C1 = nn.LSTMCell(self.C1_s * self.obs_squares, self.C1_s)
-        self.f_module_stat_C2 = nn.LSTMCell(self.C2_s * self.obs_squares, self.C2_s)
+        self.f_module_obs = nn.LSTMCell(state_in_dim['state'], state_in_dim['state']) #* self.obs_squares, state_in_dim['state'])
+        self.f_module_stat_C1 = nn.LSTMCell(self.C1_s, self.C1_s) #* self.obs_squares, self.C1_s)
+        self.f_module_stat_C2 = nn.LSTMCell(self.C2_s, self.C2_s) #* self.obs_squares, self.C2_s)
 
         
         if self.per_class_critic:
@@ -128,7 +128,33 @@ class A2CHetGat(object):
         else:
             self.critic_head = nn.Linear(out_dim['state'], 1)
             
-            
+    
+    def get_class_state_info(self, x):
+        C1 = torch.zeros(1, self.C1_s)
+        C2 = torch.zeros(1, self.C2_s)
+        C3 = torch.zeros(1, self.C3_s)
+        
+        for i in range(self.num_C1+self.num_C2+self.num_C3):
+            vel, pos = [0,0], [0,0]
+            if i < self.num_C1:
+                vel, pos = x[1][i][0:2], x[1][i][2:4]
+                C1 = torch.cat((C1, pos), dim=0)
+            elif i < self.num_C1 + self.num_C2:
+                vel, pos = x[1][i][0:2], x[1][i][2:4]
+                C2 = torch.cat((C2, pos), dim=0)
+            else:
+                vel, pos = x[1][i][0:2], x[1][i][2:4]
+                C3 = torch.cat((C3, pos), dim=0)        
+        
+    def get_obs_info(self, x):
+        C1 = torch.zeros(1, self.C1_o)
+        C2 = torch.zeros(1, self.C2_o)
+        C3 = torch.zeros(1, self.C3_o)
+        
+        for i in range(self.num_C1+self.num_C2+self.num_C3):
+            vel, pos = [0,0], [0,0]
+            if i < self.num_C1:
+                vel, pos = x[1][]
     #Became irrelevant as simple_tag has predefined action space
     #def remove_excess_action_features_from_all(self, x):
     #    C1 = torch.zeros(1, self.C1_s)
@@ -215,7 +241,9 @@ class A2CHetGat(object):
     #            C1[:, i]= C1_i
     #            
 
-                    
+        
+    
+    #self.C1_s = state_in_dim['C1'], self.C2_s = state_in_dim['C2']
     def init_hidden(self, batch_size):
         h = {}
         h['C1_s'] = tuple((torch.zeros(self.num_C1, self.C1_s, requires_grad=True).to(self.device),
@@ -233,6 +261,7 @@ class A2CHetGat(object):
                             torch.zeros(self.num_C3, self.C3_o, requires_grad=True).to(self.device)))
         return h
     
+    #in oridinal code input x = [state, prev_hid] (trainer.py line 123~), prev_hid is output of def init_hidden, g = graph with features
     def forward(self, x, g):
         #x:state, g:graph
         """
@@ -264,7 +293,7 @@ class A2CHetGat(object):
         [-0.5670,  0.9303, -0.0695,  0.3067]], grad_fn=<AddBackward0>)), 
         'A_s': (tensor([], size=(0, 25)), tensor([], size=(0, 25)))}]
         """
-        #for simple_tag, x = {state, }
+        #for simple_tag, x = [state, prev_hid]
         extras = x
         hidden_state_c1_stat = extras['C1_s'][0].to(self.device)
         hidden_state_c2_stat = extras['C2_s'][0].to(self.device)
@@ -282,11 +311,11 @@ class A2CHetGat(object):
         #x:torch.Size([1, 3, 725]) -> x_C1_obs:torch.Size([3, 625]) 
         if self.num_C3 == 0:
             #state is not input data for simple_tag, only observation
-            x_c1_stat, x_c2_stat = self.remove_excess_action_features_from_all(x)
-            x_c1_obs, x_c2_obs = self.get_obs_features(x).to(self.device)
+            x_c1_stat, x_c2_stat = self.get_class_state_info(x).to(self.device)
+            x_c1_obs, x_c2_obs = self.get_obs_info(x).to(self.device)
         else:
-            x_c1_stat, x_c2_stat, x_c3_stat = self.remove_excess_action_features_from_all(x)
-            x_c1_obs, x_c2_obs, x_c3_obs = self.get_obs_features(x).to(self.device)
+            x_c1_stat, x_c2_stat, x_c3_stat = self.get_class_state_info(x).to(self.device)
+            x_c1_obs, x_c2_obs, x_c3_obs = self.get_obs_info(x).to(self.device)
             
         feat_dict = {}
         

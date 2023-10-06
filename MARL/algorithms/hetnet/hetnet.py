@@ -155,14 +155,15 @@ class A2CHetGat(object):
             return C1,C2,C3
         
     def get_obs_info(self, x):
-        C1 = torch.zeros(1, self.C1_o)
-        C2 = torch.zeros(1, self.C2_o)
-        C3 = torch.zeros(1, self.C3_o)
+        C1 = torch.emtpy(0)
+        C2 = torch.empty(0)
+        C3 = torch.empty(0)
         
         for i in range(self.num_C1+self.num_C2+self.num_C3):
             vel, pos = [0,0], [0,0]
             if i < self.num_C1:
                 vel, pos = x[1][]
+                
     #Became irrelevant as simple_tag has predefined action space
     #def remove_excess_action_features_from_all(self, x):
     #    C1 = torch.zeros(1, self.C1_s)

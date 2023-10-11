@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
 
-from gymnasium.spaces import Box, Discrete
+from gymnasium.spaces import Box, Discrete 
+import gynmasium.spaces 
+box_obj = hasattr(gymnasium.spaces, 'Box')
 import numpy as np
 
 from hetgat_real import HeteroGATLayerReal, MultiHeteroGATLayerReal
@@ -115,7 +117,7 @@ class A2CHetGat(object):
         self.f_module_obs = nn.LSTMCell(state_in_dim['state'], state_in_dim['state']) #* self.obs_squares, state_in_dim['state'])
         self.f_module_stat_C1 = nn.LSTMCell(self.C1_s, self.C1_s) #* self.obs_squares, self.C1_s)
         self.f_module_stat_C2 = nn.LSTMCell(self.C2_s, self.C2_s) #* self.obs_squares, self.C2_s)
-
+        
         
         if self.per_class_critic:
             self.C1_critic_head = nn.Linear(out_dim['state'], 1)

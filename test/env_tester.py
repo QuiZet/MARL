@@ -48,6 +48,13 @@ env = simple_tag_v3.parallel_env()
 #var = _tmep.env_name
 #env = var()
 
+##init env v3
+#def call_env(framework, env):
+#    env_module = importlib.import_module(framework)
+#    env_class = getattr(env_module, env)
+#    env_instance = env_class()
+#    return env_instance
+
 #init env through function
 def call_env(framework, env):
     env = importlib.import_module(f'{framework}.{env}')

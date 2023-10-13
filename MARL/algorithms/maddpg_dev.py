@@ -218,12 +218,20 @@ class MADDPG(object):
         torch.save(save_dict, filename)
 
     @classmethod
-    def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
-                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64):
+    def init_from_env(cls, env, *args, agent_alg="MADDPG", adversary_alg="MADDPG",
+                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64, **kwargs):
         """
         Instantiate instance of this class from multi-agent environment
         """
         print('MADDPG::init_from_env')
+        print(f'env:{type(env)}')
+        print(f'agent_alg:{agent_alg}')
+        print(f'adversary_alg:{adversary_alg}')
+        print(f'gamma:{gamma}')
+        print(f'tau:{tau}')
+        print(f'lr:{lr}')
+        print(f'hidden_dim:{hidden_dim}')
+
         agent_init_params = []
         #env.agent_types]
         alg_types = [adversary_alg if atype == 'adversary' else agent_alg for atype in env.possible_agents]

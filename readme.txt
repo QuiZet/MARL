@@ -33,3 +33,10 @@ MARL/configs
 MARL/build_hetgraph
   Initialization of hetgraph using dgl, given observation dictionary of multiple agents
   python MARL/algorithms/hetnet/test_utils.py
+
+
+# Run a trainable environments
+
+python run/environment_trainer.py
+python run/environment_trainer.py ++logger.kwargs.name='custom_name'
+python run/environment_trainer.py ++logger.class_name='NoLogger'

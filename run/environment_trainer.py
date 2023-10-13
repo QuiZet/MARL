@@ -21,12 +21,16 @@ from threading import Thread
 import hydra
 from omegaconf import OmegaConf
 
+# Environment
+from run import environment
 # Logger
 from MARL.utils_log import loggers
 
 # Trainer
 from run.trainer import run_parallel_env
 
+# Model
+from MARL.models.MADDPGWrapper import MADDPGWrapper
 
 @hydra.main(config_path="cfg", config_name="config.yaml", version_base="1.2")
 def main(
@@ -52,8 +56,17 @@ def main(
     if(cfg.logger.class_name == "WandbDistributedLogger"):
         Thread(target = logger.log_loop).start()
 
+    # device
+    device = cfg.device
+
+    # environment
+    env = environment.make_env(cfg.environment)
+
+    # model
+    model = MADDPGWrapper(env, device, **cfg.model)
+    
     # start trainer
-    run_parallel_env(cfg.environment, logger)
+    run_parallel_env(env, model, logger, cfg.environment)
 
     # Close the logger
     logger.finish()

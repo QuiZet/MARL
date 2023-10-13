@@ -167,3 +167,4 @@ wandb/
 results/
 temp/
 models/
+outputs/

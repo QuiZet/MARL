@@ -1,0 +1,53 @@
+# @package _global_
+
+defaults:
+  - environment: pettingzoo_mpe_simple_tag_v3/default
+
+# global parameters
+device: cuda
+debug: False
+deterministic: False
+no_workers: -1
+seed: 0
+comment: ''
+# training
+train:
+  do: True
+  mixed_precision: False
+  epochs: -1
+  batch_size: -1
+  grad_clip: 0.0
+  max_epochs_no_improvement: 100
+  track_grad_norm: -1 # -1 for no tracking.
+  accumulate_grad_steps: 1 # Accumulate gradient over different batches. Should divide batch_size.
+  distributed: False
+  num_nodes: -1
+optimizer:
+  name: Adam
+  lr: 0.0
+  mask_lr_ratio: 1.
+  momentum: -1.
+  nesterov: False
+  weight_decay: 0.0
+  lookahead:
+    do: False
+    k: 5
+    alpha: 0.5
+scheduler:
+  name: ''
+  decay_steps: -1
+  factor: -1.0
+  patience: -1
+  warmup_epochs: -1
+  mode: 'max'
+# testing
+test:
+  batch_size_multiplier: 1
+# logging
+logger: 
+  class_name: WandbDistributedLogger # WandbDistributedLogger # options: NoLogger, TensorboardLogger
+  kwargs:
+    name: null
+    project: RL-test
+    entity: utokyo-marl
+    tags: []

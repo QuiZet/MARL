@@ -1,3 +1,4 @@
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -16,12 +17,13 @@ class GRUNetwork(nn.Module):
         out = self.fc(out)
         return self.softmax(out).squeeze(1)
 
+
 def main():
     # init environment
     aec_env = simple_tag_v3.env()
     aec_env.reset()
     agent_names = aec_env.agents
-    env = simple_tag_v3.parallel_env(continuous_actions=False)
+    env = simple_tag_v3.parallel_env(continuous_actions=True)
 
     # GRU network
     input_dim = env.observation_space(agent_names[0]).shape[0] + 1  # observation + reward
@@ -32,19 +34,22 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     # reset env
-    observations = env.reset()
+    observations, info = env.reset()
 
     num_steps = 10
-
+    print(f'agent_names:{agent_names}')
+    
     for _ in range(num_steps):
-        actions = {}
+        actions = {agent: [0.00,0.00,0.00,0.00,0.00] for agent in agent_names}
         rewards = {agent: 0 for agent in agent_names}
         obs_rewards = []
-
+        print(f'print actions that will be taken:{actions}')
         next_observations, reward_dicts, _, _, _ = env.step(actions)
         for agent in agent_names:
-            rewards[agent] = reward_dicts[agent].get('reward', 0.0)
+            rewards[agent] = reward_dicts[agent]
 
+        print(f'type(observations):{type(observations)}')
+        print(f'observations:{observations}')
         for agent in agent_names:
             obs_reward = np.append(observations[agent], rewards[agent])
             # zero pad the agent observation with 0 to match adversary
@@ -72,8 +77,15 @@ def main():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-    print("-----Training completed-----")
+        print("-----Training completed-----")
+        save_path = './models/gru_action.pt'
+        torch.save(model.state_dict(), save_path)
+        print(f"Model saved to {save_path}")
+        
+        # test model
+        #test_model(model, env, agent_names, output_dim)
 
 if __name__ == "__main__":
+    
     main()
+

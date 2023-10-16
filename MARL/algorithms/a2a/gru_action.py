@@ -17,6 +17,37 @@ class GRUNetwork(nn.Module):
         out = self.fc(out)
         return self.softmax(out).squeeze(1)
 
+def test_model(model, env, agent_names, output_dim, num_test_steps=10):
+    model.eval() 
+    total_rewards = {agent: 0 for agent in agent_names}
+    
+    with torch.no_grad():
+        observations, _ = env.reset()
+        for _ in range(num_test_steps):
+            actions = {agent: np.zeros(output_dim) for agent in agent_names}
+            rewards = {agent: 0 for agent in agent_names}
+            obs_rewards = []
+            for agent in agent_names:
+                obs_reward = np.append(observations[agent], rewards[agent])
+                if agent == "agent_0":
+                    obs_reward = np.append(obs_reward, [0, 0])
+                obs_rewards.append(obs_reward)
+
+            obs_rewards_np = np.array(obs_rewards)
+            obs_rewards = torch.tensor(obs_rewards_np, dtype=torch.float32)
+            action_probs = model(obs_rewards)
+            for idx, agent in enumerate(agent_names):
+                chosen_action = np.random.choice(output_dim, p=action_probs[idx].numpy())
+                actions[agent][chosen_action] = 1
+            
+            next_observations, reward_dicts, _, _, _ = env.step(actions)
+            for agent in agent_names:
+                rewards[agent] += reward_dicts[agent]
+            
+            observations = next_observations
+
+    for agent in agent_names:
+        print(f"Total reward for {agent}: {total_rewards[agent]}")
 
 def main():
     # init environment
@@ -83,7 +114,7 @@ def main():
         print(f"Model saved to {save_path}")
         
         # test model
-        #test_model(model, env, agent_names, output_dim)
+        test_model(model, env, agent_names, output_dim)
 
 if __name__ == "__main__":
     

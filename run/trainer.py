@@ -39,19 +39,8 @@ def run_parallel_env(env, model, logger, env_config) -> None:
                 agent_obs = [obs_dict[agent]]
                 torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
 
-            if model is not None:
-                # Get actions from the MARL policy and explore if needed
-                #torch_agent_actions = maddpg.step(torch_obs, explore=True)
-                # clip the action between a minimum and maximum value to prevent noisy warning messages
-                #agent_actions = {agent: np.clip(ac, 0, 1) for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-                torch_agent_actions = model.step(torch_obs)
-                agent_actions = {agent: ac for agent, ac in zip(env.possible_agents, torch_agent_actions)}
-            else:
-                # dummy action (if no MARL policy)
-                agent_actions = dict()
-                for agent in env.possible_agents:
-                    action = env.action_space(agent).sample()  # this is where you would insert your policy
-                    agent_actions[agent] = action
+            # Get the agent/agents action
+            agent_actions = model.step(torch_obs)
 
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)

@@ -161,7 +161,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-models/
+# Excluded
 test_playground.ipynb
 wandb/
 results/
@@ -169,3 +169,7 @@ temp/
 models/
 outputs/
 MARL/algorithms/a2a/models/
+
+# Exception
+!MARL/models/
+

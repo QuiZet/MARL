@@ -2,7 +2,7 @@
 
 defaults:
   - environment: pettingzoo_mpe_simple_tag_v3/default
-  - model: ddpg_maddpg/default
+  - model: random/default
 
 # global parameters
 device: cuda

@@ -30,7 +30,7 @@ from MARL.utils_log import loggers
 from run.trainer import run_parallel_env
 
 # Model
-from MARL.models.MADDPGWrapper import MADDPGWrapper
+import MARL.models
 
 @hydra.main(config_path="cfg", config_name="config.yaml", version_base="1.2")
 def main(
@@ -63,7 +63,7 @@ def main(
     env = environment.make_env(cfg.environment)
 
     # model
-    model = MADDPGWrapper(env, device, **cfg.model)
+    model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
     
     # start trainer
     run_parallel_env(env, model, logger, cfg.environment)

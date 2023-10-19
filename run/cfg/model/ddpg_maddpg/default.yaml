@@ -1,3 +1,4 @@
+name: MADDPGWrapper
 agent_alg: MADDPG
 adversary_alg: MADDPG
 gamma: 0.953

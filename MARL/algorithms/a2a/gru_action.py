@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,12 +9,11 @@ class GRUNetwork(nn.Module):
         super(GRUNetwork, self).__init__()
         self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
-        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
         out, _ = self.gru(x)
-        out = self.fc(out)
-        return self.softmax(out).squeeze(1)
+        logits = self.fc(out)
+        return logits.squeeze(1)
 
 def test_model(model, env, agent_names, output_dim, num_test_steps=10):
     model.eval() 
@@ -25,6 +23,7 @@ def test_model(model, env, agent_names, output_dim, num_test_steps=10):
         observations, _ = env.reset()
         for _ in range(num_test_steps):
             actions = {agent: np.zeros(output_dim) for agent in agent_names}
+            print(f'print actions that will be taken:{actions}')
             rewards = {agent: 0 for agent in agent_names}
             obs_rewards = []
             for agent in agent_names:
@@ -35,19 +34,22 @@ def test_model(model, env, agent_names, output_dim, num_test_steps=10):
 
             obs_rewards_np = np.array(obs_rewards)
             obs_rewards = torch.tensor(obs_rewards_np, dtype=torch.float32)
-            action_probs = model(obs_rewards)
+            logits = model(obs_rewards)
+            action_probs = nn.Softmax(dim=-1)(logits)  # Apply softmax directly to logits
             for idx, agent in enumerate(agent_names):
                 chosen_action = np.random.choice(output_dim, p=action_probs[idx].numpy())
-                actions[agent][chosen_action] = 1
+                actions[agent] = action_probs[idx].numpy()  # Send raw probabilities as actions
             
             next_observations, reward_dicts, _, _, _ = env.step(actions)
             for agent in agent_names:
                 rewards[agent] += reward_dicts[agent]
+                total_rewards[agent] += reward_dicts[agent]  # Update the total_rewards dictionary
             
             observations = next_observations
 
     for agent in agent_names:
         print(f"Total reward for {agent}: {total_rewards[agent]}")
+
 
 def main():
     # init environment
@@ -74,7 +76,7 @@ def main():
         actions = {agent: [0.00,0.00,0.00,0.00,0.00] for agent in agent_names}
         rewards = {agent: 0 for agent in agent_names}
         obs_rewards = []
-        print(f'print actions that will be taken:{actions}')
+        #print(f'print actions that will be taken:{actions}')
         next_observations, reward_dicts, _, _, _ = env.step(actions)
         for agent in agent_names:
             rewards[agent] = reward_dicts[agent]
@@ -93,14 +95,16 @@ def main():
         # Convert the numpy array to a tensor
         obs_rewards = torch.tensor(obs_rewards_np, dtype=torch.float32)
         # get action probs from the GRU
-        action_probs = model(obs_rewards)
+        logits = model(obs_rewards)
+        print(f"Logits: {logits}")
+        action_probs = nn.Softmax(dim=-1)(logits)
+        print(f"Action Probabilities: {action_probs}")
         # choose actions based on the probs
         for idx, agent in enumerate(agent_names):
             actions[agent] = np.random.choice(output_dim, p=action_probs[idx].detach().numpy())
-
         # calc loss
         targets = torch.tensor(list(actions.values()), dtype=torch.long)
-        loss = criterion(action_probs, targets)
+        loss = criterion(logits, targets)
 
         # Update the current observations
         observations = next_observations
@@ -117,6 +121,4 @@ def main():
         test_model(model, env, agent_names, output_dim)
 
 if __name__ == "__main__":
-    
     main()
-

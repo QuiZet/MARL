@@ -41,4 +41,5 @@ python run/environment_trainer.py
 python run/environment_trainer.py ++logger.kwargs.name='custom_name'
 python run/environment_trainer.py ++logger.class_name='NoLogger'
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3 
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default 
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default

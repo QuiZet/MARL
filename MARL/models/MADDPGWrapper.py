@@ -1,13 +1,17 @@
 import numpy as np
+
+import torch
+from torch.autograd import Variable
+
 from gymnasium.spaces import Box
 
 from MARL.utils.dictionary import AttrDict
 
 from MARL.algorithms.maddpg_dev import MADDPG
 from MARL.utils.buffer import ReplayBuffer
-from MARL.models.modelbaseclass import ModelBaseClass
+from MARL.models.abstractwrapper import AbstractWrapper
 
-class MADDPGWrapper(ModelBaseClass):
+class MADDPGWrapper(AbstractWrapper):
     def __init__(self, *args, **kwargs):
         print(f"args:{args}")
         print(f'kwargs:{kwargs}')
@@ -30,8 +34,16 @@ class MADDPGWrapper(ModelBaseClass):
         
         self.t = 0
 
-    def step(self, torch_obs, explore=True):
-        torch_agent_actions = self.model.step(torch_obs, explore=explore)
+    def step(self, obs_dict, *args, **kwargs):
+
+        # Convert the observations to torch Tensor
+        torch_obs = []
+        for agent in self.env.possible_agents:
+            agent_obs = [obs_dict[agent]]
+            torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
+
+        # Model step
+        torch_agent_actions = self.model.step(torch_obs, explore=self.config['explore'])
         # clip the action between a minimum and maximum value to prevent noisy warning messages
         agent_actions = {agent: np.clip(ac, 0, 1) for agent, ac in zip(self.env.possible_agents, torch_agent_actions)}
         return agent_actions

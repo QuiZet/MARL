@@ -1,8 +1,8 @@
 from MARL.utils.dictionary import AttrDict
 
-from MARL.models.modelbaseclass import ModelBaseClass
+from MARL.models.abstractwrapper import AbstractWrapper
 
-class RandomWrapper(ModelBaseClass):
+class RandomWrapper(AbstractWrapper):
     def __init__(self, *args, **kwargs):
         print(f"args:{args}")
         print(f'kwargs:{kwargs}')
@@ -13,9 +13,9 @@ class RandomWrapper(ModelBaseClass):
         self.env = args[0]
         self.device = args[1]
         print(f'device:{self.device}')
-        self.t = 0
+        print(f'possible_agents:{self.env.possible_agents}')
 
-    def step(self, torch_obs, explore=True):
+    def step(self, *args, **kwargs):
         # dummy action (if no MARL policy)
         agent_actions = dict()
         for agent in self.env.possible_agents:

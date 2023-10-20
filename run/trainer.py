@@ -4,9 +4,6 @@ import importlib
 
 import numpy as np
 
-import torch
-from torch.autograd import Variable
-
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 import pygame
@@ -33,14 +30,8 @@ def run_parallel_env(env, model, logger, env_config) -> None:
             # Inform pre episode cycle
             model.pre_episode_cycle(ep_cycle_i)
 
-            # Convert the observations to torch Tensor
-            torch_obs = []
-            for agent in env.possible_agents:
-                agent_obs = [obs_dict[agent]]
-                torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
-
             # Get the agent/agents action
-            agent_actions = model.step(torch_obs)
+            agent_actions = model.step(obs_dict)
 
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)

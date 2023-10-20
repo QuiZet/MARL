@@ -2,7 +2,7 @@
 # abstract base class work
 from abc import ABC, abstractmethod
 
-class ModelBaseClass(ABC):
+class AbstractWrapper(ABC):
     def __init__(self, *args, **kwargs):
         print(f"args:{args}")
         print(f'kwargs:{kwargs}')

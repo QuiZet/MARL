@@ -11,9 +11,3 @@ def load(directory_path):
             loaded_module = SourceFileLoader(module_name, full_path).load_module()
             loaded_modules[module_name] = loaded_module
     return loaded_modules
-
-# Direct path to scenarios_pkg directory
-directory_path = r"/home/yungisimon/MARL/MARL/github_projects/scenarios_pkg"
-
-# Load all Python files in the directory
-loaded_modules = load(directory_path)

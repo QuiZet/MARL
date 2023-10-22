@@ -4,12 +4,15 @@ print(f'sys_path: {sys.path}')
 def make_env(scenario_name, benchmark=False, discrete=False):
     from environment import MultiAgentEnv
     import scenarios_pkg as scenarios_pkg
-
+    #from scenarios_pkg import scenario_name
+    
     # import all scenarios as modules
-    scenario = scenarios_pkg.load
-    print(scenario_name)
+    directory_path = r"/home/yungisimon/MARL/MARL/github_projects/scenarios_pkg"
+    loaded_modules = scenarios_pkg.load(directory_path)
+    print(f'loaded_modules: {loaded_modules}')
+    scenario = loaded_modules[scenario_name].Scenario()
     # create world
-    world = scenario_name.make_world()
+    world = scenario.make_world()
     # create multiagent environment
     if benchmark:        
         env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, scenario.benchmark_data, discrete=discrete)

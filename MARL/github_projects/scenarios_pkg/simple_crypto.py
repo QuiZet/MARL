@@ -6,8 +6,8 @@ adversary to goal. Adversary is rewarded for its distance to the goal.
 
 
 import numpy as np
-from multiagent.core import World, Agent, Landmark
-from multiagent.scenario import BaseScenario
+from scenarios_pkg.core import World, Agent, Landmark
+from scenarios_pkg.scenario import BaseScenario
 import random
 
 

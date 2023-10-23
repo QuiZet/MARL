@@ -7,7 +7,7 @@ def make_env(scenario_name, benchmark=False, discrete=False):
     #from scenarios_pkg import scenario_name
     
     # import all scenarios as modules
-    directory_path = r"/home/yungisimon/MARL/MARL/github_projects/scenarios_pkg"
+    directory_path = 'path_to_scenarios_pkg'
     loaded_modules = scenarios_pkg.load(directory_path)
     print(f'loaded_modules: {loaded_modules}')
     scenario = loaded_modules[scenario_name].Scenario()

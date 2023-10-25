@@ -1,4 +1,6 @@
 import sys
+from pettingzoo.mpe import simple_adversary_v3, simple_crypto_v3, simple_push_v3, simple_reference_v3, simple_speaker_listener_v4, simple_spread_v3, simple_tag_v3, simple_world_comm_v3
+
 print(f'sys_path: {sys.path}')
 
 def make_env(scenario_name, benchmark=False, discrete=False):
@@ -19,3 +21,21 @@ def make_env(scenario_name, benchmark=False, discrete=False):
     else:
         env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, discrete=discrete)
     return env
+
+env_mapping = {
+    "simple":simple_adversary_v3.env,
+    "simple_adversary": simple_adversary_v3.env,
+    "simple_crypto": simple_crypto_v3.env,
+    "simple_push": simple_push_v3.env,
+    "simple_reference": simple_reference_v3.env,
+    "simple_speaker_listener": simple_speaker_listener_v4.env,
+    "simple_spread": simple_spread_v3.env,
+    "simple_tag": simple_tag_v3.env,
+    "simple_world_comm": simple_world_comm_v3.env,
+}
+
+def make_env_from_pettingzoo(env_name, **kwargs):
+    if env_name in env_mapping:
+        return env_mapping[env_name](**kwargs)
+    else:
+        raise ValueError(f"Unrecognized environment name {env_name}")

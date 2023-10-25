@@ -23,9 +23,17 @@ class Runner_MAPPO_MPE:
         self.agent_names = [self.env.agents[i] for i in range(self.env.num_agents)] #list of agent names
         print(self.agent_names)
         self.args.N = self.env.num_agents  # The number of agents
-        self.args.obs_dim_n = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # obs dimensions of N agents
+        self.args.obs_dim_n_raw = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # obs dimensions of N agents
+        self.args.obs_dim_n = []
+        for box in self.args.obs_dim_n_raw:
+            obs_dim = box.shape[0]
+            self.args.obs_dim_n.append(obs_dim)
         print(self.args.obs_dim_n)
-        self.args.action_dim_n = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # actions dimensions of N agents
+        self.args.action_dim_n_raw = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # actions dimensions of N agents
+        self.args.action_dim_n = []
+        for box in self.args.action_dim_n_raw:
+            action_dim = box.shape[0]
+            self.args.action_dim_n.append(action_dim)
         print(self.args.action_dim_n)
         # Only for homogenous agents environments like Spread in MPE,all agents have the same dimension of observation space and action space
         self.args.obs_dim = self.args.obs_dim_n[0]  # The dimensions of an agent's observation space
@@ -85,7 +93,7 @@ class Runner_MAPPO_MPE:
 
     def run_episode_mpe(self, evaluate=False):
         episode_reward = 0
-        obs_n = self.env.reset()
+        obs_n, _ = self.env.reset()
         if self.args.use_reward_scaling:
             self.reward_scaling.reset()
         if self.args.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.

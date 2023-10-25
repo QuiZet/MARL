@@ -93,7 +93,13 @@ class Runner_MAPPO_MPE:
 
     def run_episode_mpe(self, evaluate=False):
         episode_reward = 0
-        obs_n, _ = self.env.reset()
+        obs_n_tuple = ()
+        self.env.reset()
+        for agent in self.env.agent_iter():
+            obs_n, _, _, _ , _ = self.env.last()
+            obs_n_tuple += (obs_n,)
+        obs_n = np.vstack(obs_n_tuple)    
+        print(f'--stacked_obs_n: {obs_n}')
         if self.args.use_reward_scaling:
             self.reward_scaling.reset()
         if self.args.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.

@@ -23,7 +23,7 @@ def make_env(scenario_name, benchmark=False, discrete=False):
     return env
 
 env_mapping = {
-    "simple":simple_adversary_v3.env,
+    "simple":simple_adversary_v3.parallel_env,
     "simple_adversary": simple_adversary_v3.parallel_env,
     "simple_crypto": simple_crypto_v3.parallel_env,
     "simple_push": simple_push_v3.parallel_env,

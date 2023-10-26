@@ -160,6 +160,7 @@ class MAPPO_MPE:
     def choose_action(self, obs_n, evaluate):
         with torch.no_grad():
             actor_inputs = []
+            #print(f'choose_action obs_n: {obs_n}')
             obs_n = torch.tensor(obs_n, dtype=torch.float32)  # obs_n.shape=(N，obs_dim)
             actor_inputs.append(obs_n)
             if self.add_agent_id:
@@ -188,12 +189,15 @@ class MAPPO_MPE:
         with torch.no_grad():
             critic_inputs = []
             # Because each agent has the same global state, we need to repeat the global state 'N' times.
+            #print(f'get_value_s: {s}')
             s = torch.tensor(s, dtype=torch.float32).unsqueeze(0).repeat(self.N, 1)  # (state_dim,)-->(N,state_dim)
             critic_inputs.append(s)
             if self.add_agent_id:  # Add an one-hot vector to represent the agent_id
                 critic_inputs.append(torch.eye(self.N))
             critic_inputs = torch.cat([x for x in critic_inputs], dim=-1)  # critic_input.shape=(N, critic_input_dim)
+            #print(f'critic_inputs: {critic_inputs}, critic_inputs.shape: {critic_inputs.shape}')
             v_n = self.critic(critic_inputs)  # v_n.shape(N,1)
+            #print(f'v_n: {v_n}, v_n.shape: {v_n.shape}, flatten: {v_n.numpy().flatten()}')
             return v_n.numpy().flatten()
 
     def train(self, replay_buffer, total_steps):

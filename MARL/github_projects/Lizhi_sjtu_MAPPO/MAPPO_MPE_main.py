@@ -20,21 +20,18 @@ class Runner_MAPPO_MPE:
         # Create env
         self.env = make_env_from_pettingzoo(env_name) # Discrete action space
         self.env.reset()
-        self.agent_names = [self.env.agents[i] for i in range(self.env.num_agents)] #list of agent names
+        self.agent_names = self.env.agents #list of agent names
         print(self.agent_names)
         self.args.N = self.env.num_agents  # The number of agents
         self.args.obs_dim_n_raw = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # obs dimensions of N agents
         self.args.obs_dim_n = []
         for box in self.args.obs_dim_n_raw:
             obs_dim = box.shape[0]
-            self.args.obs_dim_n.append(obs_dim)
-        print(self.args.obs_dim_n)
-        self.args.action_dim_n_raw = [self.env.observation_space(self.agent_names[i]) for i in range(self.args.N)]  # actions dimensions of N agents
-        self.args.action_dim_n = []
-        for box in self.args.action_dim_n_raw:
-            action_dim = box.shape[0]
-            self.args.action_dim_n.append(action_dim)
-        print(self.args.action_dim_n)
+            self.args.obs_dim_n.append(obs_dim)  
+        self.args.action_dim_n_raw = [self.env.action_spaces]
+        print(f'self.args.action_dim_n_raw:{self.args.action_dim_n_raw}')
+        self.args.action_dim_n = [self.env.action_spaces[agent].n for agent in self.agent_names] # actions dimensions of N agents
+        print(f'self.args.obs_dim_n_raw:{self.args.obs_dim_n_raw}, self.args.obs_dim_n:{self.args.obs_dim_n}, self.args.action_dim_n:{self.args.action_dim_n}')
         # Only for homogenous agents environments like Spread in MPE,all agents have the same dimension of observation space and action space
         self.args.obs_dim = self.args.obs_dim_n[0]  # The dimensions of an agent's observation space
         self.args.action_dim = self.args.action_dim_n[0]  # The dimensions of an agent's action space
@@ -93,33 +90,40 @@ class Runner_MAPPO_MPE:
 
     def run_episode_mpe(self, evaluate=False):
         episode_reward = 0
-        obs_n_tuple = ()
-        self.env.reset()
-        for agent in self.env.agent_iter():
-            obs_n, _, _, _ , _ = self.env.last()
-            obs_n_tuple += (obs_n,)
-        obs_n = np.vstack(obs_n_tuple)    
-        print(f'--stacked_obs_n: {obs_n}')
+        obs_raw,_ = self.env.reset()
+        #print(f'obs_raw:{obs_raw}')
+        #print(f'obs_n:{obs_n}, shape of obs_n:{np.array(obs_n).shape}')
+        
         if self.args.use_reward_scaling:
             self.reward_scaling.reset()
         if self.args.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.
             self.agent_n.actor.rnn_hidden = None
             self.agent_n.critic.rnn_hidden = None
         for episode_step in range(self.args.episode_limit):
+            obs_n = [obs_raw[agent_name] for agent_name in self.agent_names]
             a_n, a_logprob_n = self.agent_n.choose_action(obs_n, evaluate=evaluate)  # Get actions and the corresponding log probabilities of N agents
-            s = np.array(obs_n).flatten()  # In MPE, global state is the concatenation of all agents' local obs.
+            #print(f'a_n:{a_n}, a_logprob_n:{a_logprob_n}')
+            a_n_dict = {agent_name: acition for agent_name, acition in zip(self.agent_names, a_n)}
+            #print(a_n_dict)
+            s = np.array(obs_n, dtype=np.float32).flatten()  # In MPE, global state is the concatenation of all agents' local obs.
+            #print(f'flattened s:{s}, type_of_flattened_s:{type(s)}, data_type of s:{s.dtype}')
             v_n = self.agent_n.get_value(s)  # Get the state values (V(s)) of N agents
-            obs_next_n, r_n, done_n, _ = self.env.step(a_n)
-            episode_reward += r_n[0]
+            obs_next_n, r_n_dict, done_n_dict, _, _ = self.env.step(a_n_dict)
+            #sum of reward for all agents
+            episode_reward = sum(r_n_dict.values())
+            #print(f'episode_rewards:{episode_reward}')
+            done_n = [done_n_dict[agent_name] for agent_name in self.agent_names]
+            #print(f'done_n:{done_n}')
 
             if not evaluate:
                 if self.args.use_reward_norm:
-                    r_n = self.reward_norm(r_n)
+                    episode_reward = self.reward_norm(episode_reward)
                 elif args.use_reward_scaling:
-                    r_n = self.reward_scaling(r_n)
-
+                    episode_reward = self.reward_scaling(episode_reward)
+                
+                #print(f'episode_reward:{type(episode_reward)}, obs_n:{type(obs_n)}, s:{type(s)}, v_n:{type(v_n)}, a_n:{type(a_n)}, a_logprob_n:{type(a_logprob_n)}, done_n:{type(done_n)}')
                 # Store the transition
-                self.replay_buffer.store_transition(episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n)
+                self.replay_buffer.store_transition(episode_step, obs_n, s, v_n, a_n, a_logprob_n, episode_reward, done_n)
 
             obs_n = obs_next_n
             if all(done_n):
@@ -127,6 +131,7 @@ class Runner_MAPPO_MPE:
 
         if not evaluate:
             # An episode is over, store v_n in the last step
+            obs_n = [obs_raw[agent_name] for agent_name in self.agent_names]
             s = np.array(obs_n).flatten()
             v_n = self.agent_n.get_value(s)
             self.replay_buffer.store_last_value(episode_step + 1, v_n)
@@ -164,5 +169,5 @@ if __name__ == '__main__':
     parser.add_argument("--use_value_clip", type=float, default=False, help="Whether to use value clip.")
 
     args = parser.parse_args()
-    runner = Runner_MAPPO_MPE(args, env_name="simple_spread", number=1, seed=0)
+    runner = Runner_MAPPO_MPE(args, env_name="simple_tag", number=1, seed=0)
     runner.run()

@@ -1,8 +1,7 @@
 name: MADDPGWrapper2
-gamma: 0.953
-tau: 0.013
-lr: 0.013
-hidden_dim: 643
+gamma: 0.95
+tau: 0.01
+hidden_dim: 64
 min_action: -1
 max_action: 1
 
@@ -26,8 +25,6 @@ init_noise_scale: 0.3
 batch_size: 1024
 n_rollout_threads: 1
 steps_per_update: 100
-
-explore: True
 
 # replay buffer
 buffer_size: 1e6

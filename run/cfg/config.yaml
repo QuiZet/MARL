@@ -1,8 +1,8 @@
 # @package _global_
 
 defaults:
-  - environment: pettingzoo_mpe_simple_tag_v3/default
-  - model: random/default
+  - environment: pettingzoo_mpe_simple_tag_v3
+  - model: random
 
 # global parameters
 device: cuda
@@ -11,6 +11,13 @@ deterministic: False
 no_workers: -1
 seed: 0
 comment: ''
+# environment
+environment:
+  evaluate_freq: 5000
+  evaluate_times: 3
+# evaluation
+evaluate:
+  do: False
 # training
 train:
   do: True

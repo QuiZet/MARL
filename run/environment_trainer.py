@@ -61,12 +61,16 @@ def main(
 
     # environment
     env = environment.make_env(cfg.environment)
+    if cfg.evaluate.do:
+        env_evaluate = environment.make_env(cfg.environment)
+    else:
+        env_evaluate = None
 
     # model
     model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
     
     # start trainer
-    run_parallel_env(env, model, logger, cfg.environment)
+    run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
 
     # Close the logger
     logger.finish()

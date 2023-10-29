@@ -172,6 +172,7 @@ MARL/algorithms/a2a/models/
 MARL/github_projects/Lizhi_sjtu_MAPPO/data_train/
 MARL/github_projects/Lizhi_sjtu_MAPPO/model/
 MARL/github_projects/Lizhi_sjtu_MAPPO/runs/
+runs/
 
 # Exception
 !MARL/models/

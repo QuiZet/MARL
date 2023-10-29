@@ -43,7 +43,8 @@ python run/environment_trainer.py ++logger.class_name='NoLogger'
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default
 python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default 
 python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default
-
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0
 
 #Train MAPPO for MPE_simple_spread
 Before running code, in environment.py change directory_path = 'path_to_scenarios_pkg' to local directory where scenarios_pkg is located.

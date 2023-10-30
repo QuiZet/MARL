@@ -169,9 +169,9 @@ temp/
 models/
 outputs/
 MARL/algorithms/a2a/models/
-MARL/github_projects/Lizhi_sjtu_MAPPO/data_train/
-MARL/github_projects/Lizhi_sjtu_MAPPO/model/
-MARL/github_projects/Lizhi_sjtu_MAPPO/runs/
+MARL/github_projects/Lizhi_sjtu_MAPPO_MPE/data_train/
+MARL/github_projects/Lizhi_sjtu_MAPPO_MPE/model/
+MARL/github_projects/Lizhi_sjtu_MAPPO_MPE/runs/
 runs/
 
 # Exception

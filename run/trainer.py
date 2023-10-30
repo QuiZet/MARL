@@ -68,6 +68,11 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
             # ------------ Log episode score
             logger.log(rewards)
             #logger.log(dict(something here))
+            if total_steps % env_config.evaluate_freq == 0:
+                print(f'rewards:{rewards}')
+
+            total_steps += 1
+
 
         # Inform a new episode begin
         model.end_episode(ep_i)
@@ -127,7 +132,6 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
 
         evaluate_reward += episode_reward
     # ------------ Log episode score
-    logger.log(rewards)
-    print(f'evaluate_reward:{evaluate_reward}')
-
-
+    evaluate_reward_dict = dict()
+    evaluate_reward_dict['evaluate_reward'] = evaluate_reward
+    logger.log(evaluate_reward_dict)

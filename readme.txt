@@ -37,8 +37,7 @@ MARL/build_hetgraph
 
 # Run a trainable environments
 
-python run/environment_trainer.py
-python run/environment_trainer.py ++logger.kwargs.name='custom_name'
+No Logger
 python run/environment_trainer.py ++logger.class_name='NoLogger'
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default
 python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default 
@@ -46,6 +45,9 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pet
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3
+
+WanDB
+python run/environment_trainer.py ++logger.kwargs.name='custom_name' ++logger.kwargs.group='test_group' model=maddpg ++model.min_action=0
 
 #Train MAPPO for PettingZoo envds
 

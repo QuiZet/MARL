@@ -3,6 +3,7 @@
 defaults:
   - environment: pettingzoo_mpe_simple_tag_v3
   - model: random
+  - _self_
 
 # global parameters
 device: cuda
@@ -17,7 +18,7 @@ environment:
   evaluate_times: 3
 # evaluation
 evaluate:
-  do: False
+  do: True
 # training
 train:
   do: True
@@ -56,7 +57,11 @@ logger:
   class_name: WandbDistributedLogger # options: NoLogger, TensorboardLogger
   kwargs:
     name: null
-    project: RL-test
     entity: utokyo-marl
+    project: RL-test
+    group: ""
     tags: []
-    offline: False
+    #offline: False
+    mode: online # choices=['online', 'offline', 'disabled']
+    id: null # pass correct id to resume experiment!
+    job_type: training

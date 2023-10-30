@@ -5,7 +5,7 @@ import argparse
 from normalization import Normalization, RewardScaling
 from replay_buffer import ReplayBuffer
 from mappo_mpe import MAPPO_MPE
-from make_env import make_env, make_env_from_pettingzoo
+from MARL.algorithms.mappo.make_env import make_env, make_env_from_pettingzoo
 import wandb
 
 #wandb.init(entity='yungisimon', project='MAPPO_MPE', name='MAPPO_MPE_simple_spread')

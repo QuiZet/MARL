@@ -177,3 +177,5 @@ runs/
 # Exception
 !MARL/models/
 
+# Single file
+config_tree.txt

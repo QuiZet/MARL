@@ -21,6 +21,8 @@ from threading import Thread
 import hydra
 from omegaconf import OmegaConf
 
+from MARL.utils_log.printing import print_config
+
 # Environment
 from run import environment
 # Logger
@@ -42,14 +44,15 @@ def main(
     verify_config(cfg)
 
     # display config
-    print(OmegaConf.to_yaml(cfg))
+    #print(OmegaConf.to_yaml(cfg))
+    print_config(cfg, resolve=True) # <-- Pretty
 
     # logger
     # Create logger
     logger = getattr(loggers, cfg.logger.class_name)()
     # Initialize the logger
     logger.init(
-        config=dict(OmegaConf.to_container(cfg)),
+        #dict(OmegaConf.to_container(cfg)),
         **cfg.logger.kwargs
     )
     # pop log information and add to wandb

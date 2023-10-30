@@ -64,7 +64,7 @@ try:
     import numpy as np
     import torch
     from torch.utils.tensorboard import SummaryWriter
-    from rl_utils.decorators import run_once
+    from MARL.utils_log.decorators import run_once
     class TensorboardLogger:
 
         tb_writer: SummaryWriter = None
@@ -125,7 +125,7 @@ try:
                     cls.img = cls.to8b(image)
 
         @classmethod
-        @run_once
+        @run_once  # (why run_once?)
         def write_model(cls, *args, **kwargs) -> None:
             """Function that writes out the model diagram
             Args:

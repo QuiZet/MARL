@@ -49,6 +49,6 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++
 
 #Train MAPPO for PettingZoo envds
 
-Before running code, in MAPPO_MPE_main.py assign env arguments in line 23, assign env name in line 197
+Before running code, in MARL/MARL/algorithms/mappo/MAPPO_MPE_main.py assign env arguments in line 23 and env name in line 197
 Create a folder named 'data_train' and 'model' in github_projects directory
-python ~/MARL/MARL/github_projects/Lizhi_sjtu_MAPPO_MPE/MAPPO_MPE_main.py
+python ~/MARL/MARL/algorithms/mappo/MAPPO_MPE_main.py

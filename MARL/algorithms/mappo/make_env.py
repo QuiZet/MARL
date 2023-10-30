@@ -4,7 +4,7 @@ from pettingzoo.mpe import simple_adversary_v3, simple_crypto_v3, simple_push_v3
 print(f'sys_path: {sys.path}')
 
 def make_env(scenario_name, benchmark=False, discrete=False):
-    from environment import MultiAgentEnv
+    from MARL.algorithms.mappo.environment import MultiAgentEnv
     import scenarios_pkg as scenarios_pkg
     #from scenarios_pkg import scenario_name
     

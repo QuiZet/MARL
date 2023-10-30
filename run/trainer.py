@@ -40,6 +40,8 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
 
+            if ep_cycle_i/100000 == 0:
+                print(f'------ reward at episode :{ep_i} is {rewards}')
             # Inform pre episode cycle
             model.post_episode_cycle(ep_cycle_i, obs_dict, agent_actions, rewards, next_obs, dones)
 

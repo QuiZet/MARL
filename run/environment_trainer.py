@@ -57,7 +57,8 @@ def main(
     )
     # pop log information and add to wandb
     if(cfg.logger.class_name == "WandbDistributedLogger"):
-        Thread(target = logger.log_loop).start()
+        logger_thread_obj = Thread(target = logger.log_loop)
+        logger_thread_obj.start()
 
     # device
     device = cfg.device
@@ -77,6 +78,25 @@ def main(
 
     # Close the logger
     logger.finish()
+
+    # Close the environment
+    try:
+        env.close()
+        if cfg.evaluate.do:
+            env_evaluate.close()    
+    except Exception as e:
+        print(f'[ex] environment_trainer.py:{e}')
+
+    # Stop the logger thread
+    try:
+        if(cfg.logger.class_name == "WandbDistributedLogger"):
+            while logger_thread_obj.is_alive():
+                print(f'logger_thread_obj:{logger_thread_obj.is_alive()}')
+                logger_thread_obj._stop()
+            logger_thread_obj.join()
+    except Exception as e:
+        print(f'[ex] environment_trainer.py:{e}')
+
 
 def verify_config(cfg: OmegaConf):
     if cfg.train.distributed and cfg.train.avail_gpus < 2:

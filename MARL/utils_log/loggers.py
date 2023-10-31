@@ -1,5 +1,5 @@
 from torch.multiprocessing import Queue
-from threading import Thread
+import threading
 
 class NoLogger:
     def __init__(self):
@@ -29,10 +29,15 @@ try:
     class WandbDistributedLogger:
         def __init__(self, *args, **kwargs):
             self.queue = Queue()
+            # create an event
+            self.event = threading.Event()
 
         def log_loop(self):
-            while True:
-                wandb.log(self.queue.get())
+            while self.event.is_set() is False:
+                data = self.queue.get()
+                if data is None:
+                    continue
+                wandb.log(data)
     
         def config(self, *args, **kwargs):
             return wandb.config(*args, **kwargs)
@@ -41,6 +46,10 @@ try:
             self.queue.put(dict)
 
         def finish(self, *args, **kwargs):
+            self.event.set()
+            # add dummy data to queue to execute the get function
+            # and terminate the log_loop
+            self.log(None) 
             return wandb.finish(*args, **kwargs)
 
         def init(self, *args, **kwargs):

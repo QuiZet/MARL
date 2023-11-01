@@ -47,7 +47,8 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/def
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3
 
 WanDB
-python run/environment_trainer.py ++logger.kwargs.name='custom_name' ++logger.kwargs.group='test_group' model=maddpg ++model.min_action=0
+python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MATD3' model=matd3 ++model.min_action=0
+python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MADDPG' model=maddpg ++model.min_action=0
 
 #Train MAPPO for PettingZoo envds
 

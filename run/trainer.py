@@ -6,7 +6,6 @@ import numpy as np
 
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
-import pygame
 
 def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
 
@@ -70,17 +69,12 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
             # ------------ Log episode score
             logger.log(rewards)
             #logger.log(dict(something here))
-            if total_steps % env_config.evaluate_freq == 0:
-                print(f'rewards:{rewards}')
 
             total_steps += 1
 
 
         # Inform a new episode begin
         model.end_episode(ep_i)
-
-    env.close()
-    env_evaluate.close()
 
 
 def evaluate_parallel_env(env, model, logger, env_config) -> None:

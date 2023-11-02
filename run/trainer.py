@@ -44,6 +44,8 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
             # Inform pre episode cycle
             model.post_episode_cycle(ep_cycle_i, obs_dict, agent_actions, rewards, next_obs, dones)
 
+            logger.log(model.loss_dict)
+            
             # render
             env.render()
 
@@ -68,7 +70,6 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
 
             # ------------ Log episode score
             logger.log(rewards)
-            #logger.log(dict(something here))
 
             total_steps += 1
 
@@ -123,9 +124,7 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
                 if completed: 
                     obs_dict, _ = env.reset()
                     break
-
-            #logger.log(dict(something here))
-
+            
         evaluate_reward += episode_reward
     # ------------ Log episode score
     evaluate_reward_dict = dict()

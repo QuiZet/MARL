@@ -28,6 +28,7 @@ class MATD3Wrapper(AbstractWrapper):
         self.config.N = self.env.max_num_agents  # The number of agents
         self.config.obs_dim_n = dict()
         self.config.action_dim_n = dict()
+        self.loss_dict = dict()
         for agent in self.env.possible_agents:
             self.config.obs_dim_n[agent] = self.env.observation_space(agent).shape[0]  # obs dimensions of N agents
             self.config.action_dim_n[agent] = self.env.action_space(agent).shape[0]  # actions dimensions of N agents
@@ -89,4 +90,10 @@ class MATD3Wrapper(AbstractWrapper):
         if self.replay_buffer.current_size > self.config.batch_size:
             # Train each agent individually
             for agent_id in self.env.possible_agents:
-                self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+                # Train the agent
+                #self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+                #print(f'actor critic loss for {agent_id} is {self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)}')
+                #self.loss_dict[f'{agent_id}_actor_loss'], self.loss_dict[f'{agent_id}_cirtic_loss'] = self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+                
+                self.loss_dict[f'{agent_id}_actor_loss'], self.loss_dict[f'{agent_id}_critic_loss'] = self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+                print(f'self.loss_dict:{self.loss_dict}')

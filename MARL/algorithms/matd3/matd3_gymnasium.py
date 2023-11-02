@@ -53,7 +53,11 @@ class MATD3(object):
             batch_a_wo_dict_n.append(batch_a_n[agent_id])
             if agent_id == self.agent_id:
                 agent_id_as_num = i
-
+        
+        actor_loss = 0.0
+        critic_loss =0.0
+                
+        
         # Compute target_Q
         with torch.no_grad():  # target_Q has no gradient
             # Trick 1:target policy smoothing
@@ -102,6 +106,9 @@ class MATD3(object):
 
             for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                 target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+        
+        #print(f'actor_loss, critic_loss:{actor_loss, critic_loss}')
+        return float(actor_loss), float(critic_loss)
 
     def save_model(self, env_name, algorithm, number, total_steps, agent_id):
         torch.save(self.actor.state_dict(), "./model/{}/{}_actor_number_{}_step_{}k_agent_{}.pth".format(env_name, algorithm, number, int(total_steps / 1000), agent_id))

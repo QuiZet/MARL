@@ -54,9 +54,7 @@ class MATD3(object):
             if agent_id == self.agent_id:
                 agent_id_as_num = i
         
-        actor_loss = 0.0
-        critic_loss =0.0
-                
+        loss_out = dict()
         
         # Compute target_Q
         with torch.no_grad():  # target_Q has no gradient
@@ -84,6 +82,8 @@ class MATD3(object):
         if self.use_grad_clip:
             torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 10.0)
         self.critic_optimizer.step()
+        # NOTE: Prepare the output
+        loss_out['critic_loss'] = critic_loss.clone().detach().item()
 
         # Trick 3:delayed policy updates
         if self.actor_pointer % self.policy_update_freq == 0:
@@ -106,9 +106,12 @@ class MATD3(object):
 
             for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                 target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+            # NOTE: Prepare the output
+            loss_out['actor_loss'] = actor_loss.clone().detach().item()
         
         #print(f'actor_loss, critic_loss:{actor_loss, critic_loss}')
-        return float(actor_loss), float(critic_loss)
+        return loss_out
 
     def save_model(self, env_name, algorithm, number, total_steps, agent_id):
         torch.save(self.actor.state_dict(), "./model/{}/{}_actor_number_{}_step_{}k_agent_{}.pth".format(env_name, algorithm, number, int(total_steps / 1000), agent_id))

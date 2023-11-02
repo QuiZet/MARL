@@ -50,6 +50,9 @@ class MADDPGWrapper2(AbstractWrapper):
         self.noise_std = self.config.noise_std_init  # Initialize noise_std
         self.noise_std_decay = (self.config.noise_std_init - self.config.noise_std_min) / self.config.noise_decay_steps
 
+        # output log dictionary
+        self.log_dict_out = None
+
     def step(self, obs_dict, *args, **kwargs):
         # Convert the observations to torch Tensor
         torch_obs = []
@@ -79,6 +82,7 @@ class MADDPGWrapper2(AbstractWrapper):
 
     def post_episode_cycle(self, *args, **kwargs):
         ep_cycle_i, obs_dict, agent_actions, rewards, next_obs, dones = args
+        self.log_dict_out = dict(rewards)
 
         # Store the transition
         self.replay_buffer.store_transition(obs_dict, agent_actions, rewards, next_obs, dones)
@@ -89,4 +93,18 @@ class MADDPGWrapper2(AbstractWrapper):
         if self.replay_buffer.current_size > self.config.batch_size:
             # Train each agent individually
             for agent_id in self.env.possible_agents:
-                self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+                actor_loss, critic_loss = self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
+
+                if self.config.log_loss:
+                    loss_dict = dict()
+                    loss_dict['actor_loss' + agent_id] = actor_loss
+                    loss_dict['critic_loss' + agent_id] = critic_loss
+                    #print(f'loss_dict:{type(loss_dict)}')
+                    #print(f'self.log_dict_out:{type(self.log_dict_out)}')
+                    self.log_dict_out = self.log_dict_out | loss_dict 
+
+    def get(self, *args, **kwargs):
+        what = kwargs['what']
+        if what == 'log_dict':
+            return self.log_dict_out
+        return None

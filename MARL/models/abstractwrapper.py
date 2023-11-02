@@ -31,3 +31,6 @@ class AbstractWrapper(ABC):
     @abstractmethod
     def save(self, fname):
         pass
+
+    def get(self, *args, **kwargs):
+        pass

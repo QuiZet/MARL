@@ -95,5 +95,7 @@ class MADDPG(object):
         for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
             target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
+        return actor_loss.clone().detach(), critic_loss.clone().detach()
+
     def save_model(self, env_name, algorithm, number, total_steps, agent_id):
         torch.save(self.actor.state_dict(), "./model/{}/{}_actor_number_{}_step_{}k_agent_{}.pth".format(env_name, algorithm, number, int(total_steps / 1000), agent_id))

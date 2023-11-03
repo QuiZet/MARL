@@ -5,7 +5,7 @@ import numpy as np
 import copy
 from networks_gymnasium import Actor_RNN, Actor_MLP, Critic_RNN, Critic_MLP
 
-class MAPPO_MPE:
+class MAPPO:
     def __init__(self, args):
         self.N = args.N
         self.action_dim = args.action_dim

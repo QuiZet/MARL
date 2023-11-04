@@ -28,15 +28,14 @@ class MAPPOWrapper(AbstractWrapper):
         self.config.N = self.env.max_num_agents  # The number of agents
         self.config.obs_dim_n = dict()
         self.config.action_dim_n = dict()
-        self.config.state_dim_n = np.sum(self.args.obs_dim_n[agent] for agent in self.args.names)
         for agent in self.env.possible_agents:
             self.config.obs_dim_n[agent] = self.env.observation_space(agent).shape[0]  # obs dimensions of N agents
             self.config.action_dim_n[agent] = self.env.action_space(agent).shape[0]  # actions dimensions of N agents
+            self.config.state_dim = np.sum(self.args.obs_dim_n[names] for names in self.args.names)
         print(f'self.args.N:{self.config.N}')
-        print("observation_space=", self.env.observation_space)
         print("obs_dim_n={}".format(self.config.obs_dim_n))
-        print("action_space=", self.env.action_space)
         print("action_dim_n={}".format(self.config.action_dim_n))
+        print("sate_dim={}".format(self.config.state_dim))
         
         # Create N agents
         self.agent_n = dict() 
@@ -90,7 +89,6 @@ class MAPPOWrapper(AbstractWrapper):
                 if self.config.log_loss:
                     for l in loss_out:
                         self.log_dict_out[l+'_'+agent_id] = loss_out[l]
-
 
     def get(self, *args, **kwargs):
         what = kwargs['what']

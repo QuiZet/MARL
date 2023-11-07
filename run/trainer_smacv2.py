@@ -5,43 +5,15 @@ import importlib
 from omegaconf import OmegaConf
 import numpy as np
 
-from smacv2.env.starcraft2.wrapper import StarCraftCapabilityEnvWrapper
-
 from MARL.utils.dictionary import AttrDict
 from MARL.algorithms.qmix.replay_buffer import ReplayBuffer
 from MARL.algorithms.qmix.qmix_smac import QMIX_SMAC
 from MARL.algorithms.qmix.normalization import Normalization
 
+from register import register_trainer
+
+@register_trainer
 def run_parallel_smacv2(env, env_evaluate, model, logger, env_config, model_config, *args, **kwargs):
-    distribution_config = {
-        "n_units": 3,
-        "n_enemies": 3,
-        "team_gen": {
-            "dist_type": "weighted_teams",
-            "unit_types": ["marine", "marauder", "medivac"],
-            "exception_unit_types": ["medivac"],
-            "weights": [1.0, 0, 0],
-            "observe": True,
-        },
-        "start_positions": {
-            "dist_type": "surrounded_and_reflect",
-            "p": 0.5,
-            "map_x": 32,
-            "map_y": 32,
-        },
-    }
-
-
-    env = StarCraftCapabilityEnvWrapper(
-        capability_config=distribution_config,
-        map_name="10gen_terran",
-        debug=False,
-        conic_fov=False,
-        obs_own_pos=True,
-        use_unit_ranges=True,
-        min_attack_range=2,
-    )
-    env_eval = env
 
     print(f'model_config:{model_config}')
     print(f'env_config:{env_config}')
@@ -72,6 +44,7 @@ def run_parallel_smacv2(env, env_evaluate, model, logger, env_config, model_conf
     replay_buffer = ReplayBuffer(args)
 
     run(args, env, agent_n, replay_buffer)
+
 
 def run(args, env, agent_n, replay_buffer):
 
@@ -133,7 +106,8 @@ def run_episode_smac(env, args, agent_n, replay_buffer, reward_norm, epsilon, ev
         win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
         episode_reward += r
 
-        env.render()
+        if args.do_render:
+            env.render()
 
         if not evaluate:
             if reward_norm:

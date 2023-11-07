@@ -1,4 +1,5 @@
-name: pettingzoo.mpe.simple_v3
+module: pettingzoo.mpe.simple_v3
+function: parallel_env
 n_episodes: 1000
 episode_length: 250 # It should match with hyperparams max_cycles
 n_rollout_threads: 1

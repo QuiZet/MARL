@@ -24,35 +24,51 @@ class QMIXWrapper(AbstractWrapper):
         self.env = args[0]
         self.device = args[1]
         print(f'device:{self.device}')
-
+        self.cfgs = args[2]
+        print(f'self.cfgs:{self.cfgs}')
+        self.cfgs_model = self.cfgs['model']
+        self.cfgs_environment = self.cfgs['environment']
+        print(f'self.cfgs_model:{self.cfgs_model} type:{type(self.cfgs_model)}')
+        print(f'self.cfgs_environment:{self.cfgs_environment} type:{type(self.cfgs_environment)}')
 
         # Create env
-        self.args = args
-        self.env_info = self.env.get_env_info()
-        self.N = self.env_info["n_agents"]  # The number of agents
-        self.obs_dim = self.env_info["obs_shape"]  # The dimensions of an agent's observation space
-        self.state_dim = self.env_info["state_shape"]  # The dimensions of global state space
-        self.action_dim = self.env_info["n_actions"]  # The dimensions of an agent's action space
-        self.episode_limit = self.env_info["episode_limit"]  # Maximum number of steps per episode
-        print("number of agents={}".format(self.N))
-        print("obs_dim={}".format(self.obs_dim))
-        print("state_dim={}".format(self.state_dim))
-        print("action_dim={}".format(self.action_dim))
-        print("episode_limit={}".format(self.episode_limit))
+        env_config = dict()
+        env_info = self.env.get_env_info()
+        env_config['N'] = env_info["n_agents"]  # The number of agents
+        env_config['obs_dim'] = env_info["obs_shape"]  # The dimensions of an agent's observation space
+        env_config['state_dim'] = env_info["state_shape"]  # The dimensions of global state space
+        env_config['action_dim'] = env_info["n_actions"]  # The dimensions of an agent's action space
+        env_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
+        env_config['epsilon_decay'] = (self.config['epsilon'] - self.config['epsilon_min']) / self.config['epsilon_decay_steps']
+
+        args = self.cfgs_model | self.cfgs_environment | env_config
+        args = AttrDict(args)
+        print(f'args:{args}')
+
+        print("number of agents={}".format(args.N))
+        print("obs_dim={}".format(args.obs_dim))
+        print("state_dim={}".format(args.state_dim))
+        print("action_dim={}".format(args.action_dim))
+        print("episode_limit={}".format(args.episode_limit))
 
         # Create N agents
-        self.agent_n = QMIX_SMAC(self.config)
-        self.replay_buffer = ReplayBuffer(self.config)
+        try:
+            self.agent_n = QMIX_SMAC(args)
+        except Exception as e:
+            print(f'e:{e}')
+        print('here')
+        self.replay_buffer = ReplayBuffer(args)
 
-        self.epsilon = self.config.epsilon  # Initialize the epsilon
+        self.epsilon = args.epsilon  # Initialize the epsilon
         self.win_rates = []  # Record the win rates
         self.total_steps = 0
-        if self.config.use_reward_norm:
+        if args.use_reward_norm:
             print("------use reward norm------")
             self.reward_norm = Normalization(shape=1)
 
         # output log dictionary
         self.log_dict_out = None
+        print('done')
 
     def step(self, obs_dict, *args, **kwargs):
         # Convert the observations to torch Tensor

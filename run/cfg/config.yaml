@@ -17,6 +17,7 @@ run_env: 'run_parallel_env'
 environment:
   evaluate_freq: 5000
   evaluate_times: 3
+  do_render: True
 # evaluation
 evaluate:
   do: "make" # copy, make, None

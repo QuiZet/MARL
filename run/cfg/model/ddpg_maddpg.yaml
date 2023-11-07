@@ -17,3 +17,5 @@ explore: True
 
 # replay buffer
 buffer_length: 1e6
+
+model_configs: ['model']

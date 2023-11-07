@@ -29,21 +29,12 @@ from run import environment
 from MARL.utils_log import loggers
 
 # Trainer
-from run.trainer import run_parallel_env
-from run.trainer_smacv2 import run_parallel_smacv2
+import register
+import trainer
+import trainer_smacv2
 
 # Model
 import MARL.models
-
-
-TRAINER_MAP = {}
-
-def get_trainer(key):
-    return TRAINER_MAP[key]
-
-def register_trainer(key, cls):
-    TRAINER_MAP[key] = cls
-
 
 @hydra.main(config_path="cfg", config_name="config.yaml", version_base="1.2")
 def main(
@@ -57,10 +48,6 @@ def main(
     # display config
     #print(OmegaConf.to_yaml(cfg))
     print_config(cfg, resolve=True) # <-- Pretty
-
-    # Register the possible trainers
-    register_trainer('run_parallel_env', run_parallel_env)
-    register_trainer('run_parallel_smacv2', run_parallel_smacv2)
 
     # logger
     # Create logger
@@ -94,15 +81,25 @@ def main(
         env_evaluate = None
         print('Environment Exception:'.format(e))
 
+    # Combine multiple configurations as input for the model
+    try:
+        container = dict()
+        for val in cfg.model.model_configs:
+            # convert in a dictionary
+            container[val] = OmegaConf.to_container(getattr(cfg, val))
+    except Exception as e:
+        print('Container Exception:'.format(e))
+
     # model
     try:
-        model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
+        print('NOTE[Future arch change]: remove **cfg.model')
+        model = getattr(MARL.models, cfg.model.name)(env, device, container, **cfg.model)
     except Exception as e:
         model = None
         print('Model Exception:'.format(e))
     
     # start trainer
-    get_trainer(cfg.run_env)(env, env_evaluate, model, logger, cfg.environment, cfg.model)
+    register.get_trainer(cfg.run_env)(env, env_evaluate, model, logger, cfg.environment, cfg.model)
     #run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
 
     # Close the logger

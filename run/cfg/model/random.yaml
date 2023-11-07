@@ -1,2 +1,4 @@
 name: RandomWrapper
 agent: 2
+
+model_configs: ['model']

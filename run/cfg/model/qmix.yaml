@@ -25,3 +25,5 @@ use_reward_norm: False # help="Whether to use reward normalization")
 use_hard_update: True # help="Whether to use hard update")
 target_update_freq: 200 # help="Update frequency of the target network")
 tau: 0.005 # help="If use soft update")
+
+model_configs: ['model','environment']

@@ -7,6 +7,9 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 
+from register import register_trainer
+
+@register_trainer
 def run_parallel_env(env, env_evaluate, model, logger, env_config, *args, **kwargs) -> None:
 
     if env_evaluate is not None:
@@ -47,7 +50,8 @@ def run_parallel_env(env, env_evaluate, model, logger, env_config, *args, **kwar
             #logger.log(model.loss_dict)
             
             # render
-            env.render()
+            if env_config.do_render:
+                env.render()
 
             # Update for the next iteration
             # i.e. obs_dict for the next iteration
@@ -107,7 +111,8 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
 
             # render
-            env.render()
+            if env_config.do_render:
+                env.render()
 
             # Update for the next iteration
             # i.e. obs_dict for the next iteration

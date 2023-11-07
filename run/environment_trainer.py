@@ -30,9 +30,20 @@ from MARL.utils_log import loggers
 
 # Trainer
 from run.trainer import run_parallel_env
+from run.trainer_smacv2 import run_parallel_smacv2
 
 # Model
 import MARL.models
+
+
+TRAINER_MAP = {}
+
+def get_trainer(key):
+    return TRAINER_MAP[key]
+
+def register_trainer(key, cls):
+    TRAINER_MAP[key] = cls
+
 
 @hydra.main(config_path="cfg", config_name="config.yaml", version_base="1.2")
 def main(
@@ -46,6 +57,10 @@ def main(
     # display config
     #print(OmegaConf.to_yaml(cfg))
     print_config(cfg, resolve=True) # <-- Pretty
+
+    # Register the possible trainers
+    register_trainer('run_parallel_env', run_parallel_env)
+    register_trainer('run_parallel_smacv2', run_parallel_smacv2)
 
     # logger
     # Create logger
@@ -64,17 +79,31 @@ def main(
     device = cfg.device
 
     # environment
-    env = environment.make_env(cfg.environment)
-    if cfg.evaluate.do:
-        env_evaluate = environment.make_env(cfg.environment)
-    else:
+    try:
+        env = environment.make_env(cfg.environment)
+        if cfg.evaluate.do is None:
+            env_evaluate = None
+        elif cfg.evaluate.do == "make":
+            env_evaluate = environment.make_env(cfg.environment)
+        elif cfg.evaluate.do == "copy":
+            env_evaluate = env
+        else:
+            env_evaluate = None
+    except Exception as e:
+        env = None
         env_evaluate = None
+        print('Environment Exception:'.format(e))
 
     # model
-    model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
+    try:
+        model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
+    except Exception as e:
+        model = None
+        print('Model Exception:'.format(e))
     
     # start trainer
-    run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
+    get_trainer(cfg.run_env)(env, env_evaluate, model, logger, cfg.environment, cfg.model)
+    #run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
 
     # Close the logger
     logger.finish()
@@ -96,7 +125,6 @@ def main(
             logger_thread_obj.join()
     except Exception as e:
         print(f'[ex] environment_trainer.py:{e}')
-
 
 def verify_config(cfg: OmegaConf):
     if cfg.train.distributed and cfg.train.avail_gpus < 2:

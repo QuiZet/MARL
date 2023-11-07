@@ -12,13 +12,14 @@ deterministic: False
 no_workers: -1
 seed: 0
 comment: ''
+run_env: 'run_parallel_env'
 # environment
 environment:
   evaluate_freq: 5000
   evaluate_times: 3
 # evaluation
 evaluate:
-  do: True
+  do: "make" # copy, make, None
 # training
 train:
   do: True

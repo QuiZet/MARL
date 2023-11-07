@@ -7,7 +7,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 
-def run_parallel_env(env, env_evaluate, model, logger, env_config) -> None:
+def run_parallel_env(env, env_evaluate, model, logger, env_config, *args, **kwargs) -> None:
 
     if env_evaluate is not None:
         evaluate_parallel_env(env_evaluate, model, logger, env_config)

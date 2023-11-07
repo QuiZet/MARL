@@ -35,6 +35,20 @@ MARL/build_hetgraph
   python MARL/algorithms/hetnet/test_utils.py
 
 
+# Install SC2
+
+cd script
+sh install_sc2.sh
+move the folder StarcraftII to /home
+Download the maps from 
+https://github.com/oxwhirl/smacv2/releases/tag/maps#:~:text=3-,SMAC_Maps.zip,-503%20KB
+Copy the SMAC_Maps in /home/moro/StarCraftII/Maps/SMAC_Maps
+
+# Install smacv2 environment
+
+cd third/smacv2
+python setup.py install
+
 # Run a trainable environments
 
 No Logger

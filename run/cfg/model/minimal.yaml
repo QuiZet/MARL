@@ -1,2 +1,4 @@
 name: MinimalWrapper
 agent: 2
+
+model_configs: ['model']

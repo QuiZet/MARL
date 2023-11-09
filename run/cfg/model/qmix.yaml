@@ -1,0 +1,29 @@
+name: QMIXWrapper
+
+algorithm: "QMIX" # help="QMIX or VDN")
+epsilon: 1.0
+epsilon_decay_steps: 50000 # help="How many steps before the epsilon decays to the minimum")
+epsilon_min: 0.05 # help="Minimum epsilon")
+buffer_size: 5000 # help="The capacity of the replay buffer")
+batch_size: 32 # help="Batch size (the number of episodes)")
+lr: 5e-4 # help="Learning rate")
+gamma: 0.99 # help="Discount factor")
+qmix_hidden_dim: 32 #  help="The dimension of the hidden layer of the QMIX network")
+hyper_hidden_dim: 64 # help="The dimension of the hidden layer of the hyper-network")
+hyper_layers_num: 1 # help="The number of layers of hyper-network")
+rnn_hidden_dim: 64 # help="The dimension of the hidden layer of RNN")
+mlp_hidden_dim: 64 # help="The dimension of the hidden layer of MLP")
+use_rnn: True # help="Whether to use RNN")
+use_orthogonal_init: True # help="Orthogonal initialization")
+use_grad_clip: True # help="Gradient clip")
+use_lr_decay: False # help="use lr decay")
+use_RMS: False # help="Whether to use RMS,if False, we will use Adam")
+add_last_action: True # help="Whether to add last actions into the observation")
+add_agent_id: True # help="Whether to add agent id into the observation")
+use_double_q: True # help="Whether to use double q-learning")
+use_reward_norm: False # help="Whether to use reward normalization")
+use_hard_update: True # help="Whether to use hard update")
+target_update_freq: 200 # help="Update frequency of the target network")
+tau: 0.005 # help="If use soft update")
+
+model_configs: ['model','environment']

@@ -29,7 +29,9 @@ from run import environment
 from MARL.utils_log import loggers
 
 # Trainer
-from run.trainer import run_parallel_env
+import register
+import trainer
+import trainer_smacv2
 
 # Model
 import MARL.models
@@ -64,17 +66,41 @@ def main(
     device = cfg.device
 
     # environment
-    env = environment.make_env(cfg.environment)
-    if cfg.evaluate.do:
-        env_evaluate = environment.make_env(cfg.environment)
-    else:
+    try:
+        env = environment.make_env(cfg.environment)
+        if cfg.evaluate.do is None:
+            env_evaluate = None
+        elif cfg.evaluate.do == "make":
+            env_evaluate = environment.make_env(cfg.environment)
+        elif cfg.evaluate.do == "copy":
+            env_evaluate = env
+        else:
+            env_evaluate = None
+    except Exception as e:
+        env = None
         env_evaluate = None
+        print('Environment Exception:'.format(e))
+
+    # Combine multiple configurations as input for the model
+    try:
+        container = dict()
+        for val in cfg.model.model_configs:
+            # convert in a dictionary
+            container[val] = OmegaConf.to_container(getattr(cfg, val))
+    except Exception as e:
+        print('Container Exception:'.format(e))
 
     # model
-    model = getattr(MARL.models, cfg.model.name)(env, device, **cfg.model)
+    try:
+        print('NOTE[Future arch change]: remove **cfg.model')
+        model = getattr(MARL.models, cfg.model.name)(env, device, container, **cfg.model)
+    except Exception as e:
+        model = None
+        print('Model Exception:'.format(e))
     
     # start trainer
-    run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
+    register.get_trainer(cfg.run_env)(env, env_evaluate, model, logger, cfg.environment, cfg.model)
+    #run_parallel_env(env, env_evaluate, model, logger, cfg.environment)
 
     # Close the logger
     logger.finish()
@@ -96,7 +122,6 @@ def main(
             logger_thread_obj.join()
     except Exception as e:
         print(f'[ex] environment_trainer.py:{e}')
-
 
 def verify_config(cfg: OmegaConf):
     if cfg.train.distributed and cfg.train.avail_gpus < 2:

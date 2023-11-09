@@ -30,3 +30,5 @@ log_loss: True
 
 # replay buffer
 buffer_size: 1e6
+
+model_configs: ['model']

@@ -46,25 +46,25 @@ Download the maps from [this link](https://github.com/oxwhirl/smacv2/releases/ta
 Copy the SMAC_Maps in `/home/moro/StarCraftII/Maps/SMAC_Maps`
 
 # Install smacv2 environment
-cd third/smacv2
+cd third/smacv2  
 python setup.py install
 
 # Run a trainable environments
 
-No Logger
-python run/environment_trainer.py ++logger.class_name='NoLogger' \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0 \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0 \\
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 \\ environment=pettingzoo_mpe_simple_adversary_v3 \\
+No Logger:  
+python run/environment_trainer.py ++logger.class_name='NoLogger'  
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default   
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default   
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default  
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0   
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0   
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3  
 
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=None \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=None   
 
 # WanDB
 
-python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MATD3' model=matd3 ++model.min_action=0
+python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MATD3' model=matd3 ++model.min_action=0  
 python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MADDPG' model=maddpg ++model.min_action=0
 
 

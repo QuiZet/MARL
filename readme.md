@@ -52,15 +52,15 @@ python setup.py install
 # Run a trainable environments
 
 No Logger
-python run/environment_trainer.py ++logger.class_name='NoLogger'
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3
+python run/environment_trainer.py ++logger.class_name='NoLogger' \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0 \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0 \\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 \\ environment=pettingzoo_mpe_simple_adversary_v3 \\
 
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=None\
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=None \\
 
 # WanDB
 

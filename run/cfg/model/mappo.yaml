@@ -1,0 +1,25 @@
+name: MAPPOWrapper
+hidden_dim: 64
+gamma: 0.95
+lambda: 0.95
+epsilon: 0.2
+entropy_coef: 0.01
+lr : 5e-4
+
+
+rnn_hidden_dim: 64
+K_epochs: 3
+batch_size: 1024
+mini_batch_size: 1024
+max_train_steps: 1000000
+episode_limit: 25
+
+use_orthogonal_init: True
+use_value_clip: True
+add_agent_id: True
+set_adam_eps: True
+use_grad_clip: True
+use_lr_decay: True
+use_adv_norm: True
+
+log_loss: True

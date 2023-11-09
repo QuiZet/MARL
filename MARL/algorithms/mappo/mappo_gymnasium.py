@@ -3,13 +3,14 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 import numpy as np
 import copy
-from networks_gymnasium import Actor_RNN, Actor_MLP, Critic_RNN, Critic_MLP
+from .networks_gymnasium import Actor_RNN, Actor_MLP, Critic_RNN, Critic_MLP
 
 class MAPPO:
-    def __init__(self, args):
+    def __init__(self, args, agent_id):
+        self.agent_id = agent_id
         self.N = args.N
-        self.action_dim = args.action_dim
-        self.obs_dim = args.obs_dim
+        self.action_dim = args.action_dim_n[agent_id]
+        self.obs_dim = args.obs_dim_n[agent_id]
         self.state_dim = args.state_dim
         self.episode_limit = args.episode_limit
         self.rnn_hidden_dim = args.rnn_hidden_dim
@@ -30,7 +31,7 @@ class MAPPO:
         self.use_value_clip = args.use_value_clip
         
         #get input dimension of actor and critic
-        self.actor_input_dim = args.obs_dim
+        self.actor_input_dim = args.obs_dim_n[agent_id]
         self.critic_dimput_dim = args.state_dim
         if self.add_agent_id:
             print("------add_agent_id------")
@@ -53,7 +54,7 @@ class MAPPO:
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr)
             
     
-    def choose_action(self, obs_n, evaluate):
+    def choose_action(self, obs_n):
         with torch.no_grad():
             actor_inputs = []
             obs_n = torch.tensor(obs_n, dtype=torch.float) # obs_n.shap=(N, obs_dim)
@@ -71,15 +72,13 @@ class MAPPO:
                 
             actor_inputs = torch.cat([x for x in actor_inputs], dim=-1) #actor_input.shape=(N, actor_input_dim)
             prob = self.actor(actor_inputs) #prob.shape=(N, action_dim)
-            if evaluate: # When evaluating the policy, select the action with the highest probability
-                a_n = prob.argmax(dim=-1)
-                return a_n.np(), None #return action and action_log_prob
-            else:
-                dist = Categorical(prob)
-                a_n = dist.sample()
-                a_logprob_n = dist.log_prob(a_n)
-                return a_n.np(), a_logprob_n.np() #return action and action_log_prob
+
+            dist = Categorical(prob)
+            a_n = dist.sample()
+            a_logprob_n = dist.log_prob(a_n)
+            return a_n.np(), a_logprob_n.np() #return action and action_log_prob
             
+    #ToDo: check wher this function is called and what is passed as global_state
     def get_value(self, global_state):
         with torch.no_grad:
             critic_inputs = []
@@ -92,6 +91,7 @@ class MAPPO:
                 return v_n.np().flatten()
             
     def train(self, replay_buffer, total_steps):
+        loss_out = dict()
         batch = replay_buffer.get_training_data() #get training data
         
         #calculate the advantages using GAE
@@ -145,7 +145,8 @@ class MAPPO:
                 surr1 = ratios * adv[index] #surr1.shape=(mini_batch_size, episode_limit, N)
                 surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * adv[index] #surr2.shape=(mini_batch_size, episode_limit, N)
                 actor_loss = -torch.min(surr1, surr2) -self.entropy_coef * dist_entropy #actor_loss.shape=(mini_batch_size, episode_limit, N)
-                
+                loss_out['mean_actor_loss'] = actor_loss.clone().detach().mean().item() 
+
                 if self.use_value_clip:
                     values_old = batch["v_n"][index, :-1].detach()
                     values_error_clipped = torch.clamp(values_now - values_old, -self.epsilon, self.epsilon) + values_old - v_target[index]
@@ -153,6 +154,7 @@ class MAPPO:
                     critic_loss = torch.max(values_error_clipped **2, values_error_original **2)
                 else:
                     critic_loss = (values_now - v_target[index]) **2
+                loss_out['mean_critic_loss'] = critic_loss.clone().detach().mean().item()
                 
                 self.ac_optimizer.zero_grad()
                 ac_loss = actor_loss.mean() + critic_loss.mean()
@@ -163,6 +165,8 @@ class MAPPO:
                 
         if self.use_lr_decay:
             self.lr_decay(total_steps)
+
+        return loss_out
             
     def get_inputs(self, batch):
         actor_inputs, critic_inputs = [], []

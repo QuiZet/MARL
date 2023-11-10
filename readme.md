@@ -38,20 +38,28 @@ Initialization of hetgraph using dgl, given observation dictionary of multiple a
 `python MARL/algorithms/hetnet/test_utils.py`
 
 # Install SC2
+
+```
 cd script
 sh install_sc2.sh
+```
 
 Move the folder StarcraftII to /home  
 Download the maps from [this link](https://github.com/oxwhirl/smacv2/releases/tag/maps#:~:text=3-,SMAC_Maps.zip,-503%20KB)  
 Copy the SMAC_Maps in `/home/moro/StarCraftII/Maps/SMAC_Maps`
 
 # Install smacv2 environment
+
+```
 cd third/smacv2  
 python setup.py install
+```
 
 # Run a trainable environments
 
-No Logger:  
+## No Logger
+
+```
 python run/environment_trainer.py ++logger.class_name='NoLogger'  
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default   
 python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default   
@@ -59,14 +67,22 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pet
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0   
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0   
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3  
+```
 
+```
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=None   
 
-# WanDB
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=copy ++environment.do_render=True ++environment.evaluate_times=32
+```
 
+## WanDB
+
+```
 python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MATD3' model=matd3 ++model.min_action=0  
 python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwargs.group='MADDPG' model=maddpg ++model.min_action=0
 
+python run/environment_trainer.py ++logger.class_name='baseline' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=copy ++environment.do_render=False ++environment.evaluate_times=32
+```
 
 # Train MAPPO for PettingZoo envds
 

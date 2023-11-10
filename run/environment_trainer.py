@@ -32,6 +32,7 @@ from MARL.utils_log import loggers
 import register
 import trainer
 import trainer_smacv2
+import trainer_smacv3
 
 # Model
 import MARL.models
@@ -70,9 +71,9 @@ def main(
         env = environment.make_env(cfg.environment)
         if cfg.evaluate.do is None:
             env_evaluate = None
-        elif cfg.evaluate.do == "make":
+        elif cfg.evaluate.do.lower() == "make":
             env_evaluate = environment.make_env(cfg.environment)
-        elif cfg.evaluate.do == "copy":
+        elif cfg.evaluate.do.lower() == "copy":
             env_evaluate = env
         else:
             env_evaluate = None

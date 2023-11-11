@@ -32,7 +32,7 @@ from MARL.utils_log import loggers
 import register
 import trainer
 import trainer_smacv2
-import trainer_smacv3
+#import trainer_smacv3
 
 # Model
 import MARL.models

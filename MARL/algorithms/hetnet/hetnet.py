@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 
 from gymnasium.spaces import Box, Discrete 
-import gynmasium.spaces 
+import gymnasium.spaces 
 box_obj = hasattr(gymnasium.spaces, 'Box')
 import numpy as np
 
@@ -164,7 +164,7 @@ class A2CHetGat(object):
         for i in range(self.num_C1+self.num_C2+self.num_C3):
             vel, pos = [0,0], [0,0]
             if i < self.num_C1:
-                vel, pos = x[1][]
+                vel, pos = x[1][0]
                 
     #Became irrelevant as simple_tag has predefined action space
     #def remove_excess_action_features_from_all(self, x):

@@ -37,6 +37,7 @@ class MATD3(object):
         a = (a + np.random.normal(0, noise_std, size=self.action_dim)).clip(self.min_action, self.max_action)
         # Cast also the dtype
         #return a
+        #print(f'action is: {a}')
         return a.astype('float32') # Env supports only Float32
 
     def train(self, replay_buffer, agent_n):

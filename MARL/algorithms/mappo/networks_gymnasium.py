@@ -11,13 +11,13 @@ def orthogonal_init(layer, gain=1.0):
             nn.init.orthogonal_(param, gain=gain)
             
 class Actor_RNN(nn.Module):
-    def __init__(self, args, actor_input_dim):
+    def __init__(self, args, action_dim, actor_input_dim):
         super().__init__()
         self.rnn_hidden = None
         
         self.fc1 = nn.Linear(actor_input_dim, args.rnn_hidden_dim)
         self.rnn = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-        self.fc2 = nn.Linear(args.rnn_hidden_dim, args.action_dim)
+        self.fc2 = nn.Linear(args.rnn_hidden_dim, action_dim)
         self.activate_func = [nn.Tanh(), nn.ReLU()][args.use_relu]
         
         if args.use_orthogonal_init:
@@ -41,7 +41,7 @@ class Critic_RNN(nn.Module):
         
         self.fc1 = nn.Linear(critic_input_dim, args.rnn_hidden_dim)
         self.rnn = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-        self.fc2 = activate_func = [nn.Tanh(), nn.ReLU()][args.use_relu]
+        self.fc2 = nn.Linear(args.rnn_hidden_dim, 1)
         self.activate_func = [nn.Tanh(), nn.ReLU()][args.use_relu] 
         if args.use_orthogonal_init:
             print("------use_orthogonal_init for Critic RNN------")

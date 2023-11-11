@@ -1,9 +1,11 @@
 import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
+from torch.utils.data.sampler import *
 import numpy as np
 import copy
 from .networks_gymnasium import Actor_RNN, Actor_MLP, Critic_RNN, Critic_MLP
+
 
 class MAPPO:
     def __init__(self, args, agent_id):
@@ -27,38 +29,37 @@ class MAPPO:
         self.use_grad_clip = args.use_grad_clip
         self.use_lr_decay = args.use_lr_decay
         self.use_adv_norm = args.use_adv_norm
+        self.use_rnn = args.use_rnn
         self.add_agent_id = args.add_agent_id
         self.use_value_clip = args.use_value_clip
         
         #get input dimension of actor and critic
-        self.actor_input_dim = args.obs_dim_n[agent_id]
-        self.critic_dimput_dim = args.state_dim
+        self.actor_input_dim = args.max_obs_dim
+        self.critic_input_dim = args.state_dim
         if self.add_agent_id:
             print("------add_agent_id------")
             self.actor_input_dim += args.N
             self.critic_input_dim += args.N
-            
+        
         if self.use_rnn:
             print("------use_rnn------")
-            self.actor = Actor_RNN(args, self.actor_input_dim)
+            self.actor = Actor_RNN(args, self.action_dim, self.actor_input_dim)
             self.critic = Critic_RNN(args, self.critic_input_dim)
         else:
-            self.actor = Actor_MLP(args, self.actor_input_dim)
+            self.actor = Actor_MLP(args,self.action_dim, self.actor_input_dim)
             self.critic = Critic_MLP(args, self.critic_input_dim)
-            
+        
         self.ac_parameters = list(self.actor.parameters()) + list(self.critic.parameters())
         if self.set_adam_eps:
             print("------set_adam_eps------")
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr, eps=1e-5)
         else:
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr)
-            
-    
+        
     def choose_action(self, obs_n):
         with torch.no_grad():
             actor_inputs = []
-            obs_n = torch.tensor(obs_n, dtype=torch.float) # obs_n.shap=(N, obs_dim)
-            actor_inputs.append(obs_n)
+            actor_inputs.append(obs_n) # obs_n.shape=(N, obs_dim)
             if self.add_agent_id:
                 """
                     Add an one-hot vector to represent the agent_id
@@ -71,14 +72,18 @@ class MAPPO:
                 actor_inputs.append(torch.eye(self.N)) 
                 
             actor_inputs = torch.cat([x for x in actor_inputs], dim=-1) #actor_input.shape=(N, actor_input_dim)
+            print(f'actor_inputs:{actor_inputs}')
             prob = self.actor(actor_inputs) #prob.shape=(N, action_dim)
+            print(f'prob:{prob}')
 
             dist = Categorical(prob)
+            print(f'dist:{dist}')
             a_n = dist.sample()
+            print(f'a_n:{a_n}')
             a_logprob_n = dist.log_prob(a_n)
-            return a_n.np(), a_logprob_n.np() #return action and action_log_prob
+            return a_n#, a_logprob_n #return action and action_log_prob
             
-    #ToDo: check wher this function is called and what is passed as global_state
+    #ToDo: check where this function is called and what is passed as global_state
     def get_value(self, global_state):
         with torch.no_grad:
             critic_inputs = []

@@ -3,9 +3,9 @@ import torch
 
 
 class ReplayBuffer:
-    def __init__(self, args):
+    def __init__(self, args, agent_id):
         self.N = args.N
-        self.obs_dim = args.obs_dim
+        self.obs_dim = args.obs_dim_n[agent_id]
         self.state_dim = args.state_dim
         self.episode_limit = args.episode_limit
         self.batch_size = args.batch_size

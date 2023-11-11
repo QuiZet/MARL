@@ -94,6 +94,8 @@ def main(
     try:
         print('NOTE[Future arch change]: remove **cfg.model')
         model = getattr(MARL.models, cfg.model.name)(env, device, container, **cfg.model)
+        print(f'model:{model}')
+        
     except Exception as e:
         model = None
         print('Model Exception:'.format(e))

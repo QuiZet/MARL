@@ -128,6 +128,7 @@ class QMIX_SMAC(object):
             if np.random.uniform() < epsilon:  # epsilon-greedy
                 # Only available actions can be chosen
                 a_n = [np.random.choice(np.nonzero(avail_a)[0]) for avail_a in avail_a_n]
+                a_n = np.array(a_n)
             else:
                 inputs = []
                 obs_n = torch.tensor(obs_n, dtype=torch.float32)  # obs_n.shape=(N，obs_dim)
@@ -216,6 +217,8 @@ class QMIX_SMAC(object):
 
         if self.use_lr_decay:
             self.lr_decay(total_steps)
+        
+        return loss.clone().detach()
 
     def lr_decay(self, total_steps):  # Learning rate Decay
         lr_now = self.lr * (1 - total_steps / self.max_train_steps)

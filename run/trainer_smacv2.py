@@ -13,128 +13,134 @@ from MARL.algorithms.qmix.normalization import Normalization
 from register import register_trainer
 
 @register_trainer
-def run_parallel_smacv2(env, env_evaluate, model, logger, env_config, model_config, *args, **kwargs):
+def run_parallel_smacv2(env, env_evaluate, model, logger, env_config, *args, **kwargs) -> None:
 
-    print(f'model_config:{model_config}')
-    print(f'env_config:{env_config}')
-
-    # Create env
+    if env is None:
+        print(f'[e] name:{__name__}')
+        return
+    
     env_info = env.get_env_info()
-    model_config['N'] = env_info["n_agents"]  # The number of agents
-    model_config['obs_dim'] = env_info["obs_shape"]  # The dimensions of an agent's observation space
-    model_config['state_dim'] = env_info["state_shape"]  # The dimensions of global state space
-    model_config['action_dim'] = env_info["n_actions"]  # The dimensions of an agent's action space
-    model_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
-    model_config['epsilon_decay'] = (model_config['epsilon'] - model_config['epsilon_min']) / model_config['epsilon_decay_steps']
+    episode_limit = env_info["episode_limit"]  # Maximum number of steps per episode
 
-    m_config = OmegaConf.to_container(model_config)
-    e_config = OmegaConf.to_container(env_config)
-    args = m_config | e_config
-    args = AttrDict(args)
-    print(f'args:{args}')
-
-    print("number of agents={}".format(args.N))
-    print("obs_dim={}".format(args.obs_dim))
-    print("state_dim={}".format(args.state_dim))
-    print("action_dim={}".format(args.action_dim))
-    print("episode_limit={}".format(args.episode_limit))
-
-    # Create N agents
-    agent_n = QMIX_SMAC(args)
-    replay_buffer = ReplayBuffer(args)
-
-    run(args, env, agent_n, replay_buffer)
-
-
-def run(args, env, agent_n, replay_buffer):
-
-    win_rates = []  # Record the win rates
     total_steps = 0
-    epsilon = args.epsilon  # Initialize the epsilon
-
-    reward_norm = None
-    if args.use_reward_norm:
-        print("------use reward norm------")
-        reward_norm = Normalization(shape=1)
-
-
     evaluate_num = -1  # Record the number of evaluations
-    while total_steps < args.max_train_steps:
-        if total_steps // args.evaluate_freq > evaluate_num:
-            win_rates, total_steps, epsilon = evaluate_policy(env, args, agent_n, replay_buffer, reward_norm, epsilon, win_rates, total_steps)  # Evaluate the policy every 'evaluate_freq' steps
-            evaluate_num += 1
+    max_train_steps = int(env_config.max_train_steps / episode_limit)
+    for ep_i in range(max_train_steps):
 
-        _, _, episode_steps, epsilon = run_episode_smac(env, args, agent_n, replay_buffer, reward_norm, epsilon, evaluate=False)  # Run an episode
-        total_steps += episode_steps
+        # Evaluate
+        if env_evaluate is not None:
+            if total_steps // env_config.evaluate_freq > evaluate_num:
+                evaluate_parallel_env(env_evaluate, model, logger, env_config, total_steps)
+                evaluate_num += 1
 
-        if replay_buffer.current_size >= args.batch_size:
-            agent_n.train(replay_buffer, total_steps)  # Training
+        # Reset the environment
+        env.reset()
 
-    win_rates, total_steps, epsilon = evaluate_policy(env, args, agent_n, replay_buffer, reward_norm, epsilon, win_rates, total_steps)
-    env.close()
+        # Inform a new episode begin
+        model.begin_episode(ep_i)
 
-def evaluate_policy(env, args, agent_n, replay_buffer, reward_norm, epsilon, win_rates, total_steps):
-    win_times = 0
-    evaluate_reward = 0
-    for _ in range(args.evaluate_times):
-        win_tag, episode_reward, _, epsilon = run_episode_smac(env, args, agent_n, replay_buffer, reward_norm, epsilon, evaluate=True)
-        if win_tag:
-            win_times += 1
-        evaluate_reward += episode_reward
+        # Episode length
+        for ep_cycle_i in range(episode_limit):
 
-    win_rate = win_times / args.evaluate_times
-    evaluate_reward = evaluate_reward / args.evaluate_times
-    win_rates.append(win_rate)
-    print("total_steps:{} \t win_rate:{} \t evaluate_reward:{}".format(total_steps, win_rate, evaluate_reward))
-    return win_rates, total_steps, epsilon
+            # Inform pre episode cycle
+            model.pre_episode_cycle(ep_cycle_i)
 
-def run_episode_smac(env, args, agent_n, replay_buffer, reward_norm, epsilon, evaluate=False):
-    win_tag = False
-    episode_reward = 0
-    env.reset()
-    if args.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.
-        agent_n.eval_Q_net.rnn_hidden = None
-    last_onehot_a_n = np.zeros((args.N, args.action_dim))  # Last actions of N agents(one-hot)
-    for episode_step in range(args.episode_limit):
-        obs_n = env.get_obs()  # obs_n.shape=(N,obs_dim)
-        s = env.get_state()  # s.shape=(state_dim,)
-        avail_a_n = env.get_avail_actions()  # Get available actions of N agents, avail_a_n.shape=(N,action_dim)
-        epsilon = 0 if evaluate else epsilon
-        a_n = agent_n.choose_action(obs_n, last_onehot_a_n, avail_a_n, epsilon)
-        last_onehot_a_n = np.eye(args.action_dim)[a_n]  # Convert actions to one-hot vectors
-        r, done, info = env.step(a_n)  # Take a step
-        win_tag = True if done and 'battle_won' in info and info['battle_won'] else False
-        episode_reward += r
+            obs_n = env.get_obs()  # obs_n.shape=(N,obs_dim)
+            s = env.get_state()  # s.shape=(state_dim,)
+            avail_a_n = env.get_avail_actions()  # Get available actions of N agents, avail_a_n.shape=(N,action_dim)
 
-        if args.do_render:
-            env.render()
+            # Get the agent/agents action
+            agent_actions = model.step(obs_n, avail_a_n, evaluate=False)
 
-        if not evaluate:
-            if reward_norm:
-                r = reward_norm(r)
-            """"
-                When dead or win or reaching the episode_limit, done will be Ture, we need to distinguish them;
-                dw means dead or win,there is no next state s';
-                but when reaching the max_episode_steps,there is a next state s' actually.
-            """
-            if done and episode_step + 1 != args.episode_limit:
-                dw = True
-            else:
-                dw = False
+            # Take a step in the environment with the selected actions
+            rewards, dones, infos = env.step(agent_actions)
 
-            # Store the transition
-            replay_buffer.store_transition(episode_step, obs_n, s, avail_a_n, last_onehot_a_n, a_n, r, dw)
-            # Decay the epsilon
-            epsilon = epsilon - args.epsilon_decay if epsilon - args.epsilon_decay > args.epsilon_min else args.epsilon_min
+            # Inform pre episode cycle
+            model.post_episode_cycle(ep_cycle_i, obs_n, s, avail_a_n, agent_actions, rewards, dones, infos)
+            
+            # render
+            if env_config.do_render:
+                env.render()
 
-        if done:
-            break
+            # Check if it should complete the episode because done or truncated is true in any agent
+            if dones:
+                break
 
-    if not evaluate:
+            # ------------ Log episode score
+            log_out = model.get(what='log_dict_episode_cycle')
+            if log_out is not None: 
+                logger.log(log_out)
+
+            total_steps += 1
+
+        # Inform a new episode begin
         # An episode is over, store obs_n, s and avail_a_n in the last step
         obs_n = env.get_obs()
         s = env.get_state()
         avail_a_n = env.get_avail_actions()
-        replay_buffer.store_last_step(episode_step + 1, obs_n, s, avail_a_n)
+        model.end_episode(ep_cycle_i + 1, obs_n, s, avail_a_n)
 
-    return win_tag, episode_reward, episode_step + 1, epsilon
+        # ------------ Log episode score
+        log_out = model.get(what='log_dict_episode')
+        if log_out is not None: 
+            logger.log(log_out)
+
+def evaluate_parallel_env(env, model, logger, env_config, total_steps) -> None:
+
+    if env is None:
+        print(f'[e] name:{__name__}')
+        return
+    
+    env_info = env.get_env_info()
+    episode_limit = env_info["episode_limit"]  # Maximum number of steps per episode
+
+    win_times = 0
+    evaluate_reward = 0
+    for ep_i in range(env_config.evaluate_times):
+
+        # Reset the environment
+        env.reset()
+
+        # Inform a new episode begin
+        model.begin_episode()
+
+        # Episode length
+        win_tag = False
+        episode_reward = 0
+        for ep_cycle_i in range(episode_limit):
+
+            obs_n = env.get_obs()  # obs_n.shape=(N,obs_dim)
+            avail_a_n = env.get_avail_actions()  # Get available actions of N agents, avail_a_n.shape=(N,action_dim)
+
+            # Get the agent/agents action
+            agent_actions = model.step(obs_n, avail_a_n, evaluate=True)
+
+            # Take a step in the environment with the selected actions
+            rewards, dones, infos = env.step(agent_actions)
+
+            win_tag = True if dones and 'battle_won' in infos and infos['battle_won'] else False
+
+            # render
+            if env_config.do_render:
+                env.render()
+
+            episode_reward += rewards
+
+            # Check if it should complete the episode because done or truncated is true in any agent
+            if dones:
+                break
+
+        if win_tag:
+            win_times += 1
+        evaluate_reward += episode_reward
+
+    win_rate = win_times / env_config.evaluate_times
+    evaluate_reward = evaluate_reward / env_config.evaluate_times
+    print("total_steps:{} \t win_rate:{} \t win_times:{} \t et:{} \t evaluate_reward:{}".format(total_steps, win_rate, win_times, env_config.evaluate_times, evaluate_reward))
+
+    # ------------ Log episode score
+    evaluate_reward_dict = dict()
+    evaluate_reward_dict['evaluate_reward'] = evaluate_reward
+    evaluate_reward_dict['win_rate'] = win_rate
+    logger.log(evaluate_reward_dict)
+

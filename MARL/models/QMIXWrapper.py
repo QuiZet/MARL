@@ -41,28 +41,26 @@ class QMIXWrapper(AbstractWrapper):
         env_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
         env_config['epsilon_decay'] = (self.config['epsilon'] - self.config['epsilon_min']) / self.config['epsilon_decay_steps']
 
-        args = self.cfgs_model | self.cfgs_environment | env_config
-        args = AttrDict(args)
-        print(f'args:{args}')
+        self.all_cfgs = self.cfgs_model | self.cfgs_environment | env_config
+        self.all_cfgs = AttrDict(self.all_cfgs)
+        print(f'self.all_cfgs:{self.all_cfgs}')
 
-        print("number of agents={}".format(args.N))
-        print("obs_dim={}".format(args.obs_dim))
-        print("state_dim={}".format(args.state_dim))
-        print("action_dim={}".format(args.action_dim))
-        print("episode_limit={}".format(args.episode_limit))
+        print("number of agents={}".format(self.all_cfgs.N))
+        print("obs_dim={}".format(self.all_cfgs.obs_dim))
+        print("state_dim={}".format(self.all_cfgs.state_dim))
+        print("action_dim={}".format(self.all_cfgs.action_dim))
+        print("episode_limit={}".format(self.all_cfgs.episode_limit))
 
         # Create N agents
         try:
-            self.agent_n = QMIX_SMAC(args)
+            self.agent_n = QMIX_SMAC(self.all_cfgs)
         except Exception as e:
             print(f'e:{e}')
-        print('here')
-        self.replay_buffer = ReplayBuffer(args)
 
-        self.epsilon = args.epsilon  # Initialize the epsilon
-        self.win_rates = []  # Record the win rates
-        self.total_steps = 0
-        if args.use_reward_norm:
+        self.replay_buffer = ReplayBuffer(self.all_cfgs)
+
+        self.epsilon = self.all_cfgs.epsilon  # Initialize the epsilon
+        if self.all_cfgs.use_reward_norm:
             print("------use reward norm------")
             self.reward_norm = Normalization(shape=1)
 
@@ -70,63 +68,66 @@ class QMIXWrapper(AbstractWrapper):
         self.log_dict_out = None
         print('done')
 
-    def step(self, obs_dict, *args, **kwargs):
-        # Convert the observations to torch Tensor
-        torch_obs = []
-        for agent in self.env.possible_agents:
-            agent_obs = [obs_dict[agent]]
-            torch_obs.append(Variable(torch.Tensor(agent_obs), requires_grad=False))
+    def step(self, obs_dict, avail_a_n, *args, **kwargs):
+        evaluate = kwargs['evaluate'] 
 
-        # Each agent selects actions based on its own local observations(add noise for exploration)
-        agent_actions = dict()
-        for agent, obs in zip(self.agent_n, obs_dict):
-            agent_actions[agent] = self.agent_n[agent].choose_action(obs_dict[obs], noise_std=self.noise_std)
-        return agent_actions
+        #print(f'type:{type(obs_dict)} {type(avail_a_n)} {type(self.last_onehot_a_n)}')
+
+        epsilon = 0 if evaluate else self.epsilon
+
+        #print(f'obs_n:{obs_dict} last_onehot_a_n:{self.last_onehot_a_n} avail_a_n:{avail_a_n} epsilon:{epsilon}')        
+        a_n = self.agent_n.choose_action(obs_dict, self.last_onehot_a_n, avail_a_n, epsilon)
+        self.last_onehot_a_n = np.eye(self.all_cfgs.action_dim)[a_n]  # Convert actions to one-hot vectors
+        return a_n
     
     # Add env_evaluation in the main trainable environemnt and the option for the evaluation
 
     def save(self, fname):
         pass
 
-    def begin_episode(self, ep_i, *args, **kwargs):
-        self.win_tag = False
-        self.episode_reward = 0
-        if self.config.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.
+    def begin_episode(self, *args, **kwargs):
+        if self.all_cfgs.use_rnn:  # If use RNN, before the beginning of each episode，reset the rnn_hidden of the Q network.
             self.agent_n.eval_Q_net.rnn_hidden = None
-        self.last_onehot_a_n = np.zeros((self.N, self.action_dim))  # Last actions of N agents(one-hot)
+        self.last_onehot_a_n = np.zeros((self.all_cfgs.N, self.all_cfgs.action_dim))  # Last actions of N agents(one-hot)
+        self.log_dict_episode_out = dict()
 
-    def end_episode(self, *args, **kwargs):
-        if self.replay_buffer.current_size >= self.args.batch_size:
-            self.agent_n.train(self.replay_buffer, self.total_steps)  # Training
+    def end_episode(self, episode_step, obs_n, s, avail_a_n, *args, **kwargs):
+        # An episode is over, store obs_n, s and avail_a_n in the last step
+        self.replay_buffer.store_last_step(episode_step, obs_n, s, avail_a_n)
+
+        if self.replay_buffer.current_size >= self.all_cfgs.batch_size:
+            loss = self.agent_n.train(self.replay_buffer, episode_step)  # Training
+            self.log_dict_episode_out['loss'] = loss
 
     def pre_episode_cycle(self, *args, **kwargs):
-        pass
+        self.log_dict_episode_cycle_out = dict()
 
-    def post_episode_cycle(self, *args, **kwargs):
-        ep_cycle_i, obs_dict, agent_actions, rewards, next_obs, dones = args
-        self.log_dict_out = dict(rewards)
+    def post_episode_cycle(self, episode_step, obs_n, s, avail_a_n, agent_actions, rewards, dones, infos, *args, **kwargs):
+
+        self.log_dict_episode_cycle_out['rewards'] = rewards
+
+        if self.all_cfgs.use_reward_norm:
+            rewards = self.reward_norm(rewards)
+        """"
+            When dead or win or reaching the episode_limit, done will be Ture, we need to distinguish them;
+            dw means dead or win,there is no next state s';
+            but when reaching the max_episode_steps,there is a next state s' actually.
+        """
+        if dones and episode_step + 1 != self.all_cfgs.episode_limit:
+            dw = True
+        else:
+            dw = False
 
         # Store the transition
-        self.replay_buffer.store_transition(obs_dict, agent_actions, rewards, next_obs, dones)
-        # Decay noise_std
-        if self.config.use_noise_decay:
-           self.noise_std = self.noise_std - self.noise_std_decay if self.noise_std - self.noise_std_decay > self.config.noise_std_min else self.config.noise_std_min
-
-        if self.replay_buffer.current_size > self.config.batch_size:
-            # Train each agent individually
-            for agent_id in self.env.possible_agents:
-                actor_loss, critic_loss = self.agent_n[agent_id].train(self.replay_buffer, self.agent_n)
-
-                if self.config.log_loss:
-                    loss_dict = dict()
-                    loss_dict['actor_loss' + agent_id] = actor_loss
-                    loss_dict['critic_loss' + agent_id] = critic_loss
-                    #print(f'loss_dict:{type(loss_dict)}')
-                    #print(f'self.log_dict_out:{type(self.log_dict_out)}')
-                    self.log_dict_out = self.log_dict_out | loss_dict 
+        #avail_a_n = self.env.get_avail_actions()  # Get available actions of N agents, avail_a_n.shape=(N,action_dim)
+        self.replay_buffer.store_transition(episode_step, obs_n, s, avail_a_n, self.last_onehot_a_n, agent_actions, rewards, dw)
+        # Decay the epsilon
+        self.epsilon = self.epsilon - self.all_cfgs.epsilon_decay if self.epsilon - self.all_cfgs.epsilon_decay > self.all_cfgs.epsilon_min else self.all_cfgs.epsilon_min
 
     def get(self, *args, **kwargs):
         what = kwargs['what']
-        if what == 'log_dict':
-            return self.log_dict_out
+        if what == 'log_dict_episode':
+            return self.log_dict_episode_out
+        elif what == 'log_dict_episode_cycle':
+            return self.log_dict_episode_cycle_out
         return None

@@ -55,7 +55,7 @@ class QMIXWrapper(AbstractWrapper):
         try:
             self.agent_n = QMIX_SMAC(self.all_cfgs)
         except Exception as e:
-            print(f'e:{e}')
+            print(f'QMIXWrapper [ex]:{e}')
 
         self.replay_buffer = ReplayBuffer(self.all_cfgs)
 

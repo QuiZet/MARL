@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
-from gymnasium.spaces import Box
+from gymnasium.spaces import Box, Discrete
 
 from MARL.utils.dictionary import AttrDict
 
@@ -32,7 +32,10 @@ class MAPPOWrapper(AbstractWrapper):
             self.config.max_obs_dim = int()
             for agent in self.env.possible_agents:
                 self.config.obs_dim_n[agent] = self.env.observation_space(agent).shape[0]  # obs dimensions of N agents
-                self.config.action_dim_n[agent] = self.env.action_space(agent).shape[0]  # actions dimensions of N agents
+                if type(self.env.action_space(agent)) == Discrete:
+                    self.config.action_dim_n[agent] = self.env.action_space(agent).n  # actions dimensions of N agents
+                else:
+                    self.config.action_dim_n[agent] = self.env.action_space(agent).shape[0]  # actions dimensions of N agents
             for agent in self.env.possible_agents:
                 self.config.state_dim = np.sum(self.config.obs_dim_n[names] for names in self.config.names)
             for agent in self.env.possible_agents:
@@ -58,7 +61,7 @@ class MAPPOWrapper(AbstractWrapper):
             #self.lr_decay = self.config.lr_decay
             
         except Exception as e:
-            print(f'e:{e}')
+            print(f'MAPPOWrapper [ex]:{e}')
             raise e
 
     def step(self, obs_dict, *args, **kwargs):
@@ -79,10 +82,7 @@ class MAPPOWrapper(AbstractWrapper):
             for agent_id in self.env.possible_agents:
                 agent_actions[agent_id] = int(self.agent_n[agent_id].choose_action(cat_obs)[agent_num])
                 print(f'{agent_id}_action: {agent_actions[agent_id]}')
-        print(f'agent_actions:{agent_actions}')
         return agent_actions
-        
-        
         
     def save(self, fname):
         pass

@@ -8,11 +8,11 @@ from .networks_gymnasium import Actor_RNN, Actor_MLP, Critic_RNN, Critic_MLP
 
 
 class MAPPO:
-    def __init__(self, args, agent_id):
-        self.agent_id = agent_id
+    def __init__(self, args):
+        #self.agent_id = agent_id
         self.N = args.N
-        self.action_dim = args.action_dim_n[agent_id]
-        self.obs_dim = args.obs_dim_n[agent_id]
+        self.action_dim = args.action_dim
+        self.obs_dim = args.obs_dim
         self.state_dim = args.state_dim
         self.episode_limit = args.episode_limit
         self.rnn_hidden_dim = args.rnn_hidden_dim
@@ -56,7 +56,7 @@ class MAPPO:
         else:
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr)
         
-    def choose_action(self, obs_n):
+    def choose_action(self, obs_n, evaluate=False):
         with torch.no_grad():
             actor_inputs = []
             actor_inputs.append(obs_n) # obs_n.shape=(N, obs_dim)
@@ -76,12 +76,14 @@ class MAPPO:
             prob = self.actor(actor_inputs) #prob.shape=(N, action_dim)
             print(f'prob:{prob}')
 
-            dist = Categorical(prob)
-            print(f'dist:{dist}')
-            a_n = dist.sample()
-            print(f'a_n:{a_n}')
-            a_logprob_n = dist.log_prob(a_n)
-            return a_n#, a_logprob_n #return action and action_log_prob
+            if evaluate:  # When evaluating the policy, we select the action with the highest probability
+                a_n = prob.argmax(dim=-1)
+                return a_n.numpy(), None
+            else:
+                dist = Categorical(probs=prob)
+                a_n = dist.sample()
+                a_logprob_n = dist.log_prob(a_n)
+                return a_n.numpy(), a_logprob_n.numpy()
             
     #ToDo: check where this function is called and what is passed as global_state
     def get_value(self, global_state):
@@ -89,6 +91,7 @@ class MAPPO:
             critic_inputs = []
             #Becasue each agent has the same global state, we need to repea the global state N times
             global_state = torch.tensor(global_state, dtype=torch.float32).unsqueeze(0).repeat(self.N, 1) #(global_state_dim, ) -> (N, global_state_dim)
+            print(f'global_state:{global_state}, global_state_shape:{global_state.shape}')
             critic_inputs.append(global_state)
             if self.add_agent_id: #Add an one-hot vector to represent the agent_id
                 critic_inputs.append(torch.eye(self.N))

@@ -31,6 +31,7 @@ from MARL.utils_log import loggers
 # Trainer
 import register
 import trainer
+import trainer_mappo
 import trainer_smacv2
 #import trainer_smacv3
 

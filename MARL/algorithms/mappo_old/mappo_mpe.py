@@ -184,6 +184,7 @@ class MAPPO_MPE:
                 dist = Categorical(probs=prob)
                 a_n = dist.sample()
                 a_logprob_n = dist.log_prob(a_n)
+                print(f'prob: {prob}, a_n: {a_n}, a_logprob_n: {a_logprob_n}, a_n_eval:{prob.argmax(dim=-1)}')
                 return a_n.numpy(), a_logprob_n.numpy()
 
     def get_value(self, s):

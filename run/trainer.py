@@ -103,7 +103,7 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
         # Episode length
         episode_reward = 0
         for ep_cycle_i in range(env_config.episode_length):
-
+            
             # Get the agent/agents action
             agent_actions = model.step(obs_dict)
 

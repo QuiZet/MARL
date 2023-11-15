@@ -84,7 +84,7 @@ python run/environment_trainer.py ++logger.kwargs.name='baseline' ++logger.kwarg
 python run/environment_trainer.py ++logger.class_name='baseline' model=qmix environment=smacv2 run_env="run_parallel_smacv2" ++evaluate.do=copy ++environment.do_render=False ++environment.evaluate_times=32
 ```
 
-# Train MAPPO for PettingZoo envds
+# Train MAPPO for PettingZoo envs
 
 Before running code, in `MARL/MARL/algorithms/mappo/MAPPO_MPE_main.py` assign env arguments in line 23 and env name in line 197.  
 Create a folder named 'data_train' and 'model' in github_projects directory  

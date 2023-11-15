@@ -17,12 +17,12 @@ episode_limit: 25
 use_orthogonal_init: True
 use_value_clip: True
 add_agent_id: False
-use_rnn: True
+use_rnn: False
 use_relu: True
 set_adam_eps: True
 use_grad_clip: True
-use_lr_decay: True
-use_adv_norm: True
+use_lr_decay: False
+use_adv_norm: False
 
 n_rollout_threads: 1
 steps_per_update: 100

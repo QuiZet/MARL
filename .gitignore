@@ -176,6 +176,7 @@ runs/
 
 # Exception
 !MARL/models/
+!third/smacv2/smacv2/env/
 
 # Single file
 config_tree.txt

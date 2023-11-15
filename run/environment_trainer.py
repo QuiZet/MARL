@@ -101,6 +101,7 @@ def main(
     except Exception as e:
         model = None
         print('Model Exception:'.format(e))
+        exit(0)
     
     # start trainer
     register.get_trainer(cfg.run_env)(env, env_evaluate, model, logger, cfg.environment, cfg.model)

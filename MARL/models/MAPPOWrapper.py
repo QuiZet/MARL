@@ -39,7 +39,8 @@ class MAPPOWrapper(AbstractWrapper):
             for agent in self.env.possible_agents:
                 self.config.state_dim = np.sum(self.config.obs_dim_n[names] for names in self.config.names)
             for agent in self.env.possible_agents:
-                self.config.max_obs_dim, self.config.obs_dim = self.config.obs_dim_n[agent] if self.config.obs_dim_n[agent] > self.config.max_obs_dim else self.config.max_obs_dim
+                self.config.max_obs_dim = self.config.obs_dim_n[agent] if self.config.obs_dim_n[agent] > self.config.max_obs_dim else self.config.max_obs_dim
+                self.config.obs_dim = self.config.max_obs_dim
             print(f'self.args.N:{self.config.N}')
             print("obs_dim_n={}".format(self.config.obs_dim_n))
             print("action_dim_n={}".format(self.config.action_dim_n))

@@ -27,6 +27,7 @@ class MAPPOWrapper(AbstractWrapper):
 
             self.config.names = self.env.possible_agents
             self.config.N = self.env.max_num_agents  # The number of agents
+            # Only Homogeneous environment
             self.config.obs_dim_n = dict()
             self.config.action_dim_n = dict()
             self.config.max_obs_dim = int()
@@ -41,6 +42,21 @@ class MAPPOWrapper(AbstractWrapper):
             for agent in self.env.possible_agents:
                 self.config.max_obs_dim = self.config.obs_dim_n[agent] if self.config.obs_dim_n[agent] > self.config.max_obs_dim else self.config.max_obs_dim
                 self.config.obs_dim = self.config.max_obs_dim
+
+            # Create env
+            env_config = dict()
+            env_info = self.env.get_env_info()
+            env_config['N'] = env_info["n_agents"]  # The number of agents
+            env_config['obs_dim'] = env_info["obs_shape"]  # The dimensions of an agent's observation space
+            env_config['state_dim'] = env_info["state_shape"]  # The dimensions of global state space
+            env_config['action_dim'] = env_info["n_actions"]  # The dimensions of an agent's action space
+            env_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
+            env_config['epsilon_decay'] = (self.config['epsilon'] - self.config['epsilon_min']) / self.config['epsilon_decay_steps']
+
+            self.all_cfgs = self.cfgs_model | self.cfgs_environment | env_config
+            self.all_cfgs = AttrDict(self.all_cfgs)
+            print(f'self.all_cfgs:{self.all_cfgs}')
+
             print(f'self.args.N:{self.config.N}')
             print("obs_dim_n={}".format(self.config.obs_dim_n))
             print("action_dim_n={}".format(self.config.action_dim_n))
@@ -52,9 +68,9 @@ class MAPPOWrapper(AbstractWrapper):
             self.agent_replaybuffer_n = dict()
             obs_n = []
             print("Algorithm: MAPPO")
-            self.agent_n = MAPPO(self.config)
+            self.agent_n = MAPPO(self.all_cfgs)
             
-            self.agent_replaybuffer_n = ReplayBuffer(self.config)
+            self.agent_replaybuffer_n = ReplayBuffer(self.all_cfgs)
             
             # output log dictionary
             self.log_dict_out = None

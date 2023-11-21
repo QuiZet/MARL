@@ -8,6 +8,7 @@ lr : 5e-4
 
 
 rnn_hidden_dim: 64
+mlp_hidden_dim: 64
 K_epochs: 3
 batch_size: 1024
 mini_batch_size: 1024
@@ -23,6 +24,7 @@ set_adam_eps: True
 use_grad_clip: True
 use_lr_decay: False
 use_adv_norm: False
+
 
 n_rollout_threads: 1
 steps_per_update: 100

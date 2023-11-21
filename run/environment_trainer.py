@@ -82,6 +82,7 @@ def main(
         env = None
         env_evaluate = None
         print('Environment Exception:'.format(e))
+        exit(0)
 
     # Combine multiple configurations as input for the model
     try:
@@ -91,6 +92,7 @@ def main(
             container[val] = OmegaConf.to_container(getattr(cfg, val))
     except Exception as e:
         print('Container Exception:'.format(e))
+        exit(0)
 
     # model
     try:

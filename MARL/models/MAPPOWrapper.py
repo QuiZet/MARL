@@ -13,6 +13,13 @@ from MARL.algorithms.mappo.replay_buffer_gymnasium import ReplayBuffer
 from MARL.models.abstractwrapper import AbstractWrapper
 
 class MAPPOWrapper(AbstractWrapper):
+
+    def dict2list(self, dic):
+        r = []
+        for d in dic:
+            r.append(dic[d])
+        return r
+    
     def __init__(self, *args, **kwargs):
         try:
             print(f"args:{args}")
@@ -43,17 +50,20 @@ class MAPPOWrapper(AbstractWrapper):
                 self.config.max_obs_dim = self.config.obs_dim_n[agent] if self.config.obs_dim_n[agent] > self.config.max_obs_dim else self.config.max_obs_dim
                 self.config.obs_dim = self.config.max_obs_dim
 
+            self.config.action_dim_n = self.dict2list(self.config.action_dim_n)
+            self.config.obs_dim_n = self.dict2list(self.config.obs_dim_n)
+            print(f'self.config:{self.config}')
+
             # Create env
             env_config = dict()
-            env_info = self.env.get_env_info()
-            env_config['N'] = env_info["n_agents"]  # The number of agents
-            env_config['obs_dim'] = env_info["obs_shape"]  # The dimensions of an agent's observation space
-            env_config['state_dim'] = env_info["state_shape"]  # The dimensions of global state space
-            env_config['action_dim'] = env_info["n_actions"]  # The dimensions of an agent's action space
-            env_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
-            env_config['epsilon_decay'] = (self.config['epsilon'] - self.config['epsilon_min']) / self.config['epsilon_decay_steps']
+            env_config['N'] = self.env.max_num_agents  # The number of agents
+            env_config['obs_dim'] = self.config.obs_dim_n[0]  # The dimensions of an agent's observation space
+            env_config['state_dim'] = self.config.state_dim  # The dimensions of global state space
+            env_config['action_dim'] = self.config.action_dim_n[0]  # The dimensions of an agent's action space
+            #env_config['episode_limit'] = env_info["episode_limit"]  # Maximum number of steps per episode
+            #env_config['epsilon_decay'] = (self.config['epsilon'] - self.config['epsilon_min']) / self.config['epsilon_decay_steps']
 
-            self.all_cfgs = self.cfgs_model | self.cfgs_environment | env_config
+            self.all_cfgs = self.config | env_config
             self.all_cfgs = AttrDict(self.all_cfgs)
             print(f'self.all_cfgs:{self.all_cfgs}')
 
@@ -62,7 +72,6 @@ class MAPPOWrapper(AbstractWrapper):
             print("action_dim_n={}".format(self.config.action_dim_n))
             print("state_dim={}".format(self.config.state_dim))
             print(f'max_obs_dim:{self.config.max_obs_dim}')
-            
             # Create N agents
             self.agent_n = dict() 
             self.agent_replaybuffer_n = dict()
@@ -71,7 +80,7 @@ class MAPPOWrapper(AbstractWrapper):
             self.agent_n = MAPPO(self.all_cfgs)
             
             self.agent_replaybuffer_n = ReplayBuffer(self.all_cfgs)
-            
+
             # output log dictionary
             self.log_dict_out = None
             

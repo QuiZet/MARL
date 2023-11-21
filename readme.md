@@ -79,6 +79,12 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/def
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3  
 ```
 
+Not working yet
+
+```
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=mappo ++run_env='run_parallel_mappo'
+```
+
 ### SMAC / SMACv2
 
 ```

@@ -46,14 +46,20 @@ class MAPPO:
             self.actor = Actor_RNN(args, self.action_dim, self.actor_input_dim)
             self.critic = Critic_RNN(args, self.critic_input_dim)
         else:
-            self.actor = Actor_MLP(args,self.action_dim, self.actor_input_dim)
+            print("------no use_rnn------")
+            self.actor = Actor_MLP(args, self.actor_input_dim)
+            print("------no use_rnn------")
             self.critic = Critic_MLP(args, self.critic_input_dim)
+            print("------no use_rnn------")
         
+        print("------AA------")
         self.ac_parameters = list(self.actor.parameters()) + list(self.critic.parameters())
+        print("------BB------")
         if self.set_adam_eps:
             print("------set_adam_eps------")
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr, eps=1e-5)
         else:
+            print("------no set_adam_eps------")
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr)
         
     def choose_action(self, obs_n, evaluate=False):
@@ -87,7 +93,7 @@ class MAPPO:
             
     #ToDo: check where this function is called and what is passed as global_state
     def get_value(self, global_state):
-        with torch.no_grad:
+        with torch.no_grad():
             critic_inputs = []
             #Becasue each agent has the same global state, we need to repea the global state N times
             global_state = torch.tensor(global_state, dtype=torch.float32).unsqueeze(0).repeat(self.N, 1) #(global_state_dim, ) -> (N, global_state_dim)

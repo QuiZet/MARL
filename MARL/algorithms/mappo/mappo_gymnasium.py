@@ -37,29 +37,20 @@ class MAPPO:
         self.actor_input_dim = args.max_obs_dim
         self.critic_input_dim = args.state_dim
         if self.add_agent_id:
-            print("------add_agent_id------")
             self.actor_input_dim += args.N
             self.critic_input_dim += args.N
         
         if self.use_rnn:
-            print("------use_rnn------")
             self.actor = Actor_RNN(args, self.action_dim, self.actor_input_dim)
             self.critic = Critic_RNN(args, self.critic_input_dim)
         else:
-            print("------no use_rnn------")
             self.actor = Actor_MLP(args, self.actor_input_dim)
-            print("------no use_rnn------")
             self.critic = Critic_MLP(args, self.critic_input_dim)
-            print("------no use_rnn------")
         
-        print("------AA------")
         self.ac_parameters = list(self.actor.parameters()) + list(self.critic.parameters())
-        print("------BB------")
         if self.set_adam_eps:
-            print("------set_adam_eps------")
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr, eps=1e-5)
         else:
-            print("------no set_adam_eps------")
             self.ac_optimizer = torch.optim.Adam(self.ac_parameters, lr=self.lr)
         
     def choose_action(self, obs_n, evaluate=False):
@@ -78,9 +69,7 @@ class MAPPO:
                 actor_inputs.append(torch.eye(self.N)) 
                 
             actor_inputs = torch.cat([x for x in actor_inputs], dim=-1) #actor_input.shape=(N, actor_input_dim)
-            print(f'actor_inputs:{actor_inputs}')
             prob = self.actor(actor_inputs) #prob.shape=(N, action_dim)
-            print(f'prob:{prob}')
 
             if evaluate:  # When evaluating the policy, we select the action with the highest probability
                 a_n = prob.argmax(dim=-1)
@@ -99,7 +88,6 @@ class MAPPO:
             #Becasue each agent has the same global state, we need to repea the global state N times
             global_state = torch.tensor(global_state, dtype=torch.float32).unsqueeze(0).repeat(self.N, 1) #(global_state_dim, ) -> (N, global_state_dim)
             #global_state = torch.tensor(global_state, dtype=torch.float32) #(global_state_dim, ) -> (N, global_state_dim)
-            print(f'global_state:{global_state}, global_state_shape:{global_state.shape}')
             critic_inputs.append(global_state)
             if self.add_agent_id: #Add an one-hot vector to represent the agent_id
                 critic_inputs.append(torch.eye(self.N))

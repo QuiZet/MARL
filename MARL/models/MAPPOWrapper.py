@@ -104,7 +104,6 @@ class MAPPOWrapper(AbstractWrapper):
         dim_max = max(tensor.size(1) for tensor in torch_obs)
         padded_tensors = [torch.cat([tensor, torch.zeros(1, dim_max - tensor.size(1))], dim =1) for tensor in torch_obs]
         state = torch.cat(padded_tensors, dim=0)
-        print(f'state(concatinated obs):{state.shape}')
         
         agent_actions = dict()
         agent_log_actions = dict()

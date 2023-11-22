@@ -16,7 +16,6 @@ def list2dictlist(model, container):
     return out_dict
 
 def dictlist2list(container):
-    print(f'dictlist2list:{container}')
     out_list = []
     for name in container:
         out_list.append(container[name])
@@ -66,6 +65,7 @@ def run_parallel_mappo(env, env_evaluate, model, logger, env_config, *args, **kw
             agent_actions = dictlist2list(agent_actions)
             rewards = dictlist2list(rewards)
             dones = dictlist2list(dones)
+            truncations = dictlist2list(truncations)
             model.post_episode_cycle(ep_cycle_i, obs_dict, state, v_n, agent_actions, agent_log_actions, rewards, dones)
 
             #logger.log(model.loss_dict)
@@ -86,10 +86,8 @@ def run_parallel_mappo(env, env_evaluate, model, logger, env_config, *args, **kw
             # Check if it should complete the episode because done or truncated is true in any agent
             if True:
                 completed = False
-                for agent in env.possible_agents:
-                    #if dones[agent] or truncations[agent]:
-                    if all(dones) or all(truncations):
-                        completed = True
+                if all(dones) or all(truncations):
+                    completed = True
                 if completed: 
                     obs_dict, _ = env.reset()
                     break
@@ -103,7 +101,7 @@ def run_parallel_mappo(env, env_evaluate, model, logger, env_config, *args, **kw
 
         # Inform a new episode begin
         model.end_episode(ep_i)
-
+    print('Fin')
 
 def evaluate_parallel_env(env, model, logger, env_config) -> None:
 
@@ -135,6 +133,8 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
 
             # Take a step in the environment with the selected actions
             next_obs, rewards, dones, truncations, infos = env.step(agent_actions)
+            dones = dictlist2list(dones)
+            truncations = dictlist2list(truncations)
 
             # render
             if env_config.do_render:
@@ -150,10 +150,8 @@ def evaluate_parallel_env(env, model, logger, env_config) -> None:
             # Check if it should complete the episode because done or truncated is true in any agent
             if True:
                 completed = False
-                for agent in env.possible_agents:
-                   #if dones[agent] or truncations[agent]:
-                    if all(dones) or all(truncations):
-                        completed = True
+                if all(dones) or all(truncations):
+                    completed = True
                 if completed: 
                     obs_dict, _ = env.reset()
                     break

@@ -26,7 +26,6 @@ class ReplayBuffer:
         self.episode_num = 0
 
     def store_transition(self, episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n):
-        print(f"self.buffer['r_n'][self.episode_num][episode_step] = r_n: {self.buffer['r_n'][self.episode_num][episode_step]} {r_n}")
         self.buffer['obs_n'][self.episode_num][episode_step] = obs_n
         self.buffer['s'][self.episode_num][episode_step] = s
         self.buffer['v_n'][self.episode_num][episode_step] = v_n

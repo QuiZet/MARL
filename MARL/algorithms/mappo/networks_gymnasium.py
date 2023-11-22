@@ -60,22 +60,16 @@ class Critic_RNN(nn.Module):
 class Actor_MLP(nn.Module):
     def __init__(self, args, actor_input_dim):
         super().__init__()
-        print('Actor_MLP')
         self.fc1 = nn.Linear(actor_input_dim, args.mlp_hidden_dim)
-        print('Actor_MLP')
         self.fc2 = nn.Linear(args.mlp_hidden_dim, args.mlp_hidden_dim)
-        print('Actor_MLP')
         self.fc3 = nn.Linear(args.mlp_hidden_dim, args.action_dim)
-        print('Actor_MLP')
         self.activate_func = [nn.Tanh(), nn.ReLU()][args.use_relu]
-        print('Actor_MLP')
         
         if args.use_orthogonal_init:
             print("------use_orthogonal_init for Actor MLP------")
             orthogonal_init(self.fc1)
             orthogonal_init(self.fc2)
             orthogonal_init(self.fc3, gain=0.01)
-        print('here')
             
     def forward(self, actor_input):
         #When 'choose_action':actor_input.shape=(N, actor_input_dim), prob.shape=(N, action_dim)
@@ -88,27 +82,20 @@ class Actor_MLP(nn.Module):
 class Critic_MLP(nn.Module):
     def __init__(self, args, critic_input_dim):
         super().__init__()
-        print(f'Critic_MLP:{critic_input_dim} {args.mlp_hidden_dim}')
         self.fc1 = nn.Linear(critic_input_dim, args.mlp_hidden_dim)
-        print('Critic_MLP')
         self.fc2 = nn.Linear(args.mlp_hidden_dim, args.mlp_hidden_dim)
-        print('Critic_MLP')
         self.fc3 = nn.Linear(args.mlp_hidden_dim, 1)
-        print('Critic_MLP')
         self.activate_func = [nn.Tanh(), nn.ReLU()][args.use_relu]
-        print('Critic_MLP')
         
         if args.use_orthogonal_init:
             print("------use_orthogonal_init for Critic MLP------")
             orthogonal_init(self.fc1)
             orthogonal_init(self.fc2)
             orthogonal_init(self.fc3, gain=0.01)
-        print('Critic_MLP')
             
     def forward(self, critic_input):
         #When 'get_value':critic_input.shape=(N, critic_input_dim), value.shape=(N,1)
         #When 'train'    :critic_input.shape=(mini_batch_size, episode_limit, N, critic_input_dim), value.shape=(mini_batch_size, episode_limit, N, 1)
-        print(f'critic_input:{critic_input.shape}')
         x = self.activate_func(self.fc1(critic_input))
         x = self.activate_func(self.fc2(x))
         value = self.fc3(x)

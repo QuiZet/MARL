@@ -82,7 +82,7 @@ python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++
 Not working yet
 
 ```
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=mappo ++run_env='run_parallel_mappo'
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=mappo ++run_env='run_parallel_mappo' environment=pettingzoo_mpe_simple_spread_v3 ++environment.hyperparams.continuous_actions=False
 ```
 
 ### SMAC / SMACv2

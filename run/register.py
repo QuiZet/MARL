@@ -19,6 +19,20 @@ def register_trainer(func):
 
     Returns:
         The registered function.
+
+    Example:
+
+    newfile.py
+    from register import register_trainer
+    @register_trainer
+    def myfunc(*args, **kwargs) -> None:
+
+    main.py
+    import register
+    import newfile
+
+    # start trainer
+    register.get_trainer('myfunc')(...)          
     """
     TRAINER_MAP[func.__name__] = func
     #TRAINER_MAP[func.__name__] = []

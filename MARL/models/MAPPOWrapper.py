@@ -104,11 +104,14 @@ class MAPPOWrapper(AbstractWrapper):
         dim_max = max(tensor.size(1) for tensor in torch_obs)
         padded_tensors = [torch.cat([tensor, torch.zeros(1, dim_max - tensor.size(1))], dim =1) for tensor in torch_obs]
         state = torch.cat(padded_tensors, dim=0)
-        print(f'state(concatinated obs):{state}')
+        print(f'state(concatinated obs):{state.shape}')
         
         agent_actions = dict()
         agent_log_actions = dict()
         agent_actions, agent_log_actions = self.agent_n.choose_action(state, evaluate)
+
+        #print(f'agent_actions, agent_log_actions:{agent_actions.shape} {agent_log_actions} {state.shape}')
+        #exit(0)
         v_n = self.agent_n.get_value(state)
         self.total_steps += 1
         if evaluate:
@@ -138,7 +141,10 @@ class MAPPOWrapper(AbstractWrapper):
 
     def post_episode_cycle(self, *args, **kwargs):
         ep_cycle_i, obs_dict, state, v_n, agent_actions, agent_log_actions, rewards, dones = args
-        self.log_dict_out = dict(rewards)
+        #self.log_dict_out = dict(rewards)
+
+        #print(f'state:{state.shape}')
+        state = torch.flatten(state)
 
         #Sotre the transition
         #for self.agent_id in self.env.possible_agents:
@@ -147,7 +153,7 @@ class MAPPOWrapper(AbstractWrapper):
         #print(f'obs_dict:{obs_dict}, agent_actions:{agent_actions}, rewards:{rewards}, next_obs:{next_obs}, dones:{dones}')
         self.agent_replaybuffer_n.store_transition(ep_cycle_i, obs_dict, state, v_n, agent_actions, agent_log_actions, rewards, dones)
         #episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n
-        if self.agent_replaybuffer_n.episode_num == self.args.batch_size:
+        if self.agent_replaybuffer_n.episode_num == self.all_cfgs.batch_size:
             #train agents and log mean actor loss/mean critic loss (mean over number of episodes/batches)
             loss_out = self.agent_n.train(self.agent_replaybuffer_n, self.total_steps)
             if self.config.log_loss:

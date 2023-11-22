@@ -95,14 +95,17 @@ class MAPPO:
     def get_value(self, global_state):
         with torch.no_grad():
             critic_inputs = []
+            global_state = torch.flatten(global_state)
             #Becasue each agent has the same global state, we need to repea the global state N times
             global_state = torch.tensor(global_state, dtype=torch.float32).unsqueeze(0).repeat(self.N, 1) #(global_state_dim, ) -> (N, global_state_dim)
+            #global_state = torch.tensor(global_state, dtype=torch.float32) #(global_state_dim, ) -> (N, global_state_dim)
             print(f'global_state:{global_state}, global_state_shape:{global_state.shape}')
             critic_inputs.append(global_state)
             if self.add_agent_id: #Add an one-hot vector to represent the agent_id
                 critic_inputs.append(torch.eye(self.N))
-                v_n = self.critic(critic_inputs)
-                return v_n.np().flatten()
+            critic_inputs = torch.cat([x for x in critic_inputs], dim=-1)  # critic_input.shape=(N, critic_input_dim)
+            v_n = self.critic(critic_inputs)  # v_n.shape(N,1)
+            return v_n.numpy().flatten()
             
     def train(self, replay_buffer, total_steps):
         loss_out = dict()

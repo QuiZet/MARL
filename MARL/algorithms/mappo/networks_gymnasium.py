@@ -108,6 +108,7 @@ class Critic_MLP(nn.Module):
     def forward(self, critic_input):
         #When 'get_value':critic_input.shape=(N, critic_input_dim), value.shape=(N,1)
         #When 'train'    :critic_input.shape=(mini_batch_size, episode_limit, N, critic_input_dim), value.shape=(mini_batch_size, episode_limit, N, 1)
+        print(f'critic_input:{critic_input.shape}')
         x = self.activate_func(self.fc1(critic_input))
         x = self.activate_func(self.fc2(x))
         value = self.fc3(x)

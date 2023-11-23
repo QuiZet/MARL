@@ -10,8 +10,8 @@ lr : 5e-4
 rnn_hidden_dim: 64
 mlp_hidden_dim: 64
 K_epochs: 3
-batch_size: 1024
-mini_batch_size: 1024
+batch_size: 10 #1024
+mini_batch_size: 10 #24
 max_train_steps: 1000000
 episode_limit: 25
 

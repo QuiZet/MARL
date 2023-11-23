@@ -100,7 +100,7 @@ def run_parallel_mappo(env, env_evaluate, model, logger, env_config, *args, **kw
             total_steps += 1
 
         # Inform a new episode begin
-        model.end_episode(ep_i)
+        model.end_episode(ep_cycle_i + 1, v_n)
     print('Fin')
 
 def evaluate_parallel_env(env, model, logger, env_config) -> None:

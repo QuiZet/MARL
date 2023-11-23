@@ -132,8 +132,13 @@ class MAPPOWrapper(AbstractWrapper):
     def begin_episode(self, ep_i, *args, **kwargs):
         pass
 
-    def end_episode(self, *args, **kwargs):
-        pass
+    def end_episode(self, episode_step, v_n, *args, **kwargs):
+        # An episode is over, store obs_n, s and avail_a_n in the last step
+        self.agent_replaybuffer_n.store_last_value(episode_step, v_n)
+
+        if self.agent_replaybuffer_n.episode_num >= self.all_cfgs.batch_size:
+            loss = self.agent_n.train(self.agent_replaybuffer_n, episode_step)  # Training
+            #self.log_dict_episode_out['loss'] = loss
 
     def pre_episode_cycle(self, *args, **kwargs):
         pass
@@ -152,6 +157,7 @@ class MAPPOWrapper(AbstractWrapper):
         #print(f'obs_dict:{obs_dict}, agent_actions:{agent_actions}, rewards:{rewards}, next_obs:{next_obs}, dones:{dones}')
         self.agent_replaybuffer_n.store_transition(ep_cycle_i, obs_dict, state, v_n, agent_actions, agent_log_actions, rewards, dones)
         #episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n
+        print(f'self.agent_replaybuffer_n.episode_num:{self.agent_replaybuffer_n.episode_num} self.all_cfgs.batch_size:{self.all_cfgs.batch_size}')
         if self.agent_replaybuffer_n.episode_num == self.all_cfgs.batch_size:
             #train agents and log mean actor loss/mean critic loss (mean over number of episodes/batches)
             loss_out = self.agent_n.train(self.agent_replaybuffer_n, self.total_steps)

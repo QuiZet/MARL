@@ -107,7 +107,7 @@ class MAPPO:
             for t in reversed(range(self.episode_limit)):
                 gae = deltas[:, t] + self.gamma * self.lamda * gae
                 adv.insert(0, gae)
-            print(f'adv:{adv}')
+            #print(f'adv:{adv}')
             adv = torch.stack(adv, dim=1) #adv.shape=(batch_size,episode_limit,N)
             v_target = adv + batch['v_n'][:, :-1] #v_target.shape=(batch_size,episode_limit,N)
             if self.use_adv_norm: #Normalize the advantages

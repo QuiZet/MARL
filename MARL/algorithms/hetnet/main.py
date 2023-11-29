@@ -1,6 +1,7 @@
 import argparse
-from model import A2CHetGat
+from hetnet import A2CHetGat
 import wandb
+import hydra
 from omegaconf import DictConfig, OmegaConf
 
 parser =argparse.ArgumentParser(description='Hetnet')
@@ -45,23 +46,24 @@ param_config = {
   "lr": args.lr,
   "tau": args.tau,
   "gamma": args.gamma,
+  "epochs": 20
 }
 
-wandb.init(project='HetNEt', entity='Simon', name='A2CHetGat', config=param_config)
+wandb.init(project='HetNet', name='A2CHetGat', config=param_config)
 wandb.config.update(param_config)
 
 #hydra
-@hydra.main(version_base=None, config_path=".", config_name="config")
-
+#@hydra.main(version_base=None, config_path="conf", config_name="config")
 def run():
     if args.hetgat:
         #log hyperparameters to wandb
-        lr  =  wandb.config['lerning rate']
-        bs = wandb.config['num_agents_class1']
-        epochs = wandb.config['']
+        lr  =  wandb.config['lr']
+        bs = wandb.config['num_agents'][0]
+        epochs = wandb.config['epochs']
 
         #get grid size
-        grid_size = int(env.state_space) ** 2
+        print(f'env.state_space:{env.state_space}')
+        grid_size = 44**2 #int(env.state_space) ** 2
         state_len = (args.num_agents_class2 + args.num_agents_class3 +1) #change if class1 is included in training
         
         in_dim = {'class2': grid_size, #why is in_dim[class2,class3] == grid_size?

@@ -71,18 +71,23 @@ python setup.py install
 
 ```
 python run/environment_trainer.py ++logger.class_name='NoLogger'  
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg/default   
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default   
-python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3/default model=minimal/default  
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg/default ++model.min_action=0   
-python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3/default ++model.min_action=0   
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=ddpg_maddpg   
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3   
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3 model=minimal  
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0   
+python run/environment_trainer.py ++logger.class_name='NoLogger' model=matd3 ++model.min_action=0   
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=maddpg ++model.min_action=0 environment=pettingzoo_mpe_simple_adversary_v3  
 ```
 
-Not working yet
-
+Check asap
 ```
 python run/environment_trainer.py ++logger.class_name='NoLogger' model=mappo ++run_env='run_parallel_mappo' environment=pettingzoo_mpe_simple_spread_v3 ++environment.hyperparams.continuous_actions=False
+```
+
+
+Not working yet
+```
+python run/environment_trainer.py ++logger.class_name='NoLogger' environment=pettingzoo_mpe_simple_v3 model=hetnet  
 ```
 
 ### SMAC / SMACv2

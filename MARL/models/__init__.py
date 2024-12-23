@@ -5,3 +5,4 @@ from MARL.models.RandomWrapper import RandomWrapper
 from MARL.models.MinimalWrapper import MinimalWrapper
 from MARL.models.MAPPOWrapper import MAPPOWrapper
 from MARL.models.QMIXWrapper import QMIXWrapper
+from MARL.models.HetNetWrapper import HetNetWrapper

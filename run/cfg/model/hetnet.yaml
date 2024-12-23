@@ -1,0 +1,4 @@
+name: HetNetWrapper
+agent: 2
+
+model_configs: ['model']
